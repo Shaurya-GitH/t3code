@@ -127,6 +127,19 @@ describe("tasksToReopen", () => {
     expect(tasksToReopen([settled()], () => null)).toEqual([]);
   });
 
+  it("compares against the session's own settle mark when it has one, not the task's settle time", () => {
+    const marked = (mark: string) =>
+      settled({ sessions: [{ thread_id: "t1", title: "Chat", link: "", settle_mark: mark }] });
+    // The session's server runs 10 minutes behind this machine: its new message still counts.
+    const behind = state("2026-11-11T11:51:00.000Z");
+    expect(tasksToReopen([marked("2026-11-11T11:50:00.000Z")], behind)).toHaveLength(1);
+    // Its server runs ahead: a message from before settling does not count.
+    const ahead = state("2026-11-11T12:10:00.000Z");
+    expect(tasksToReopen([marked("2026-11-11T12:10:00.000Z")], ahead)).toEqual([]);
+    expect(tasksToReopen([marked("")], state("2026-11-11T11:00:00.000Z"))).toHaveLength(1);
+    expect(tasksToReopen([marked("")], state(null))).toEqual([]);
+  });
+
   it("ignores open tasks and tasks without a settle time", () => {
     const later = state("2026-11-11T13:00:00.000Z");
     expect(tasksToReopen([settled({ status: "done" })], later)).toEqual([]);

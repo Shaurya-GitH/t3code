@@ -110,6 +110,15 @@ export function planTaskSettle<TRef>(
   };
 }
 
+/** When the user last wrote to a session, as its server reports it. */
+export const lastUserMessageAt = (shell: {
+  readonly latestUserMessageAt: string | null;
+  readonly latestUserAuthoredMessageAt?: string | null;
+}) =>
+  shell.latestUserAuthoredMessageAt === undefined
+    ? shell.latestUserMessageAt
+    : shell.latestUserAuthoredMessageAt;
+
 /** What the reopen rule reads of a session: whether it is settled, and when the user last wrote. */
 export interface ReopenSessionState {
   readonly title: string;
@@ -119,7 +128,8 @@ export interface ReopenSessionState {
 
 /**
  * Settled tasks to reopen: one of their sessions is not settled and the user wrote to it after the
- * task was settled. A session only un-settled (an Undo, a manual un-settle) does not count.
+ * task was settled. A session only un-settled (an Undo, a manual un-settle) does not count. A
+ * session's settle mark comes from its own server's clock; without one, the task's settle time.
  */
 export function tasksToReopen(
   tasks: ReadonlyArray<Task>,
@@ -132,7 +142,9 @@ export function tasksToReopen(
     for (const session of task.sessions) {
       const state = sessionState(session);
       if (!state || state.settled || !state.lastUserMessageAt) continue;
-      if (Date.parse(state.lastUserMessageAt) > settledAt) {
+      const last = Date.parse(state.lastUserMessageAt);
+      const mark = session.settle_mark;
+      if (typeof mark === "string" ? mark === "" || last > Date.parse(mark) : last > settledAt) {
         return [{ task, sessionTitle: state.title || session.title || "a session" }];
       }
     }
