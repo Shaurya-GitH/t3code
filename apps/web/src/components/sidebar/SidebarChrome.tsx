@@ -4,6 +4,7 @@ import { memo } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 
 import { useAtomValue } from "@effect/atom-react";
+import { TasksSidebarIcon } from "../tasks/TasksSidebarIcon";
 import { useEnvironmentIdentificationMode } from "../../hooks/useSettings";
 import { shortcutLabelForCommand } from "../../keybindings";
 import {
@@ -250,6 +251,11 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
     void navigate({ to: "/usage" });
   };
 
+  const handleTasksClick = () => {
+    closeMobileSidebar();
+    void navigate({ to: "/tasks" });
+  };
+
   const handleBackClick = () => {
     closeMobileSidebar();
     void navigateToMainApp();
@@ -266,6 +272,11 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
         </SidebarMenuItem>
       ) : (
         <>
+          <SidebarUtilityItem
+            icon={<TasksSidebarIcon />}
+            label="Tasks"
+            onClick={handleTasksClick}
+          />
           <SidebarUtilityItem
             icon={<SettingsIcon />}
             label="Settings"

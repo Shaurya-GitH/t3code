@@ -58,6 +58,7 @@ import {
   ArrowLeftIcon,
   BugIcon,
   ChartNoAxesColumnIcon,
+  ListTodoIcon,
   CheckIcon,
   ChevronRightIcon,
   CornerLeftUpIcon,
@@ -1644,6 +1645,18 @@ function OpenCommandPaletteDialog(props: {
     shortcutCommand: "usage.open",
     run: async () => {
       await navigate({ to: "/usage" });
+    },
+  });
+
+  actionItems.push({
+    kind: "action",
+    value: "action:tasks",
+    searchTerms: ["tasks", "todo", "to-do", "board", "kanban", "tickets", "backlog"],
+    title: "Open tasks",
+    icon: <ListTodoIcon className={ITEM_ICON_CLASS} />,
+    shortcutCommand: "tasks.open",
+    run: async () => {
+      await navigate({ to: "/tasks" });
     },
   });
 
