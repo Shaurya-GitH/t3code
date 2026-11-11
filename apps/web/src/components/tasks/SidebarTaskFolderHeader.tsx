@@ -5,6 +5,11 @@ import { cn } from "~/lib/utils";
 import { TaskStatusDot } from "./TaskBoard";
 import type { Task } from "./tasksApi";
 
+/** The folder's sidebar tree row; its thread rows name it as their parent. */
+export function sidebarTaskFolderRowId(taskId: number) {
+  return `task-folder:${taskId}`;
+}
+
 /** The folder row of a task in the thread list: its sessions sit under it, nowhere else. */
 export function SidebarTaskFolderHeader({
   task,
@@ -22,6 +27,7 @@ export function SidebarTaskFolderHeader({
     <li className="mt-2 flex list-none items-center first:mt-0">
       <button
         type="button"
+        data-sidebar-row={sidebarTaskFolderRowId(task.id)}
         aria-expanded={!collapsed}
         aria-label={`${collapsed ? "Expand" : "Collapse"} task ${task.title}`}
         className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-(--control-radius) text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
