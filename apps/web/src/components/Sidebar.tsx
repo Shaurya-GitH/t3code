@@ -250,6 +250,7 @@ import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrom
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { SidebarTaskFilterChip, useSidebarTaskFilter } from "./tasks/SidebarTaskMark";
 import { SidebarTaskFilterMenu } from "./tasks/SidebarTaskFilterMenu";
+import { TaskReopenWatcher } from "./tasks/TaskReopenWatcher";
 import { isTaskMenuId, runSessionTaskChoice, sessionMenu } from "./tasks/sessionTaskMenu";
 import { tasksByThreadKey } from "./tasks/tasks.logic";
 import { useTaskBoard } from "./tasks/tasksApi";
@@ -3001,7 +3002,12 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           <SidebarGroup className="z-[1]">
             <SidebarThreadHeader
               hasProjects={projectGroups.length > 0}
-              taskScope={<SidebarTaskFilterMenu />}
+              taskScope={
+                <>
+                  <SidebarTaskFilterMenu />
+                  <TaskReopenWatcher />
+                </>
+              }
               projectScope={
                 <Combobox
                   items={projectScopeItems}

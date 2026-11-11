@@ -109,3 +109,33 @@ export function planTaskSettle<TRef>(
     unknown: states.filter(({ state }) => state === "unknown").length,
   };
 }
+
+/** What the reopen rule reads of a session: whether it is settled, and when the user last wrote. */
+export interface ReopenSessionState {
+  readonly title: string;
+  readonly settled: boolean;
+  readonly lastUserMessageAt: string | null;
+}
+
+/**
+ * Settled tasks to reopen: one of their sessions is not settled and the user wrote to it after the
+ * task was settled. A session only un-settled (an Undo, a manual un-settle) does not count.
+ */
+export function tasksToReopen(
+  tasks: ReadonlyArray<Task>,
+  sessionState: (session: Task["sessions"][number]) => ReopenSessionState | null,
+): Array<{ task: Task; sessionTitle: string }> {
+  return tasks.flatMap((task) => {
+    const settledAt =
+      task.status === "settled" && task.settled_at ? Date.parse(task.settled_at) : NaN;
+    if (Number.isNaN(settledAt)) return [];
+    for (const session of task.sessions) {
+      const state = sessionState(session);
+      if (!state || state.settled || !state.lastUserMessageAt) continue;
+      if (Date.parse(state.lastUserMessageAt) > settledAt) {
+        return [{ task, sessionTitle: state.title || session.title || "a session" }];
+      }
+    }
+    return [];
+  });
+}
