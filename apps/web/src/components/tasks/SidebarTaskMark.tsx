@@ -3,12 +3,22 @@ import { XIcon } from "lucide-react";
 import { create } from "zustand";
 
 import { cn } from "~/lib/utils";
+import { useNavigateToMainApp } from "../sidebar/mainAppLocation";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { TASK_COLOR_HEX } from "./tasks.logic";
 import type { Task } from "./tasksApi";
 
 /** The task the sidebar shows sessions of; null shows every session. */
 export const useSidebarTaskFilter = create<{ taskId: number | null }>(() => ({ taskId: null }));
+
+/** Leaves the Tasks view for the main screen with the sidebar showing only this task's sessions. */
+export function useShowTaskInSidebar() {
+  const navigateToMainApp = useNavigateToMainApp();
+  return (task: Pick<Task, "id">) => {
+    useSidebarTaskFilter.setState({ taskId: task.id });
+    void navigateToMainApp();
+  };
+}
 
 /** The task's color on the left edge of a session row. Clicking it shows only that task's sessions. */
 export function SidebarTaskMark({ task }: { task: Task }) {

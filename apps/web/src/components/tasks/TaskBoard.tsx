@@ -4,6 +4,7 @@ import {
   ListChecksIcon,
   MessagesSquareIcon,
   PlusIcon,
+  ListFilterIcon,
 } from "lucide-react";
 import { useState, type DragEvent } from "react";
 
@@ -29,6 +30,7 @@ import {
   TASK_COLORS,
   TASK_COLUMNS,
 } from "./tasks.logic";
+import { useShowTaskInSidebar } from "./SidebarTaskMark";
 import { useTaskStatus } from "./useTaskStatus";
 import { taskCommands, type Task, type TaskStatus } from "./tasksApi";
 
@@ -435,6 +437,7 @@ function TaskCard({
 /** Everything a drag does, without a drag. */
 function TaskCardMenu({ task }: { task: Task }) {
   const setTaskStatus = useTaskStatus();
+  const showInSidebar = useShowTaskInSidebar();
   return (
     <Menu>
       <MenuTrigger
@@ -450,6 +453,11 @@ function TaskCardMenu({ task }: { task: Task }) {
         <EllipsisIcon />
       </MenuTrigger>
       <MenuPopup align="end" onClick={(event) => event.stopPropagation()}>
+        <MenuItem onClick={() => showInSidebar(task)}>
+          <ListFilterIcon />
+          Show sessions in sidebar
+        </MenuItem>
+        <MenuSeparator />
         <MenuGroup>
           <MenuGroupLabel>Move to</MenuGroupLabel>
           {TASK_COLUMNS.filter((column) => column.status !== task.status).map((column) => (
