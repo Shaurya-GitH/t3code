@@ -27,14 +27,17 @@ import { TaskStatusDot } from "./TaskBoard";
 import {
   criteriaProgress,
   sessionRoute,
+  TASK_COLOR_HEX,
   TASK_COLUMNS,
   taskSessionPrompt,
   taskStatusLabel,
 } from "./tasks.logic";
+import { useTaskStatus } from "./useTaskStatus";
 import { taskCommands, type Task, type TaskSession, type TaskStatus } from "./tasksApi";
 
 /** The ticket: what done means, who is working on it, and what happened. */
 export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void }) {
+  const setTaskStatus = useTaskStatus();
   const { met, total } = criteriaProgress(task);
   const navigate = useNavigate();
   return (
@@ -43,11 +46,16 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
       className="flex w-full min-w-0 shrink-0 flex-col border-s bg-background max-md:absolute max-md:inset-0 max-md:z-10 md:w-[26rem]"
     >
       <header className="flex min-h-12 shrink-0 items-center gap-1 border-b ps-4 pe-2">
+        <span
+          aria-hidden
+          className="size-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: TASK_COLOR_HEX[task.color] }}
+        />
         <span className="font-mono text-xs tabular-nums text-muted-foreground">#{task.id}</span>
         <Select
           value={task.status}
           onValueChange={(value) => {
-            if (value) void taskCommands.update(task.id, { status: value as TaskStatus });
+            if (value) void setTaskStatus(task, { status: value as TaskStatus });
           }}
         >
           <SelectTrigger
@@ -73,10 +81,7 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
         </Select>
         <div className="ms-auto flex items-center gap-1">
           {task.status === "done" ? (
-            <Button
-              size="sm"
-              onClick={() => void taskCommands.update(task.id, { status: "settled" })}
-            >
+            <Button size="sm" onClick={() => void setTaskStatus(task, { status: "settled" })}>
               Settle
             </Button>
           ) : null}

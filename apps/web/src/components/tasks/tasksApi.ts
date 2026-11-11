@@ -4,6 +4,7 @@ import { requestConfirmDialog } from "../../confirmDialog";
 import { toastManager } from "../ui/toast";
 
 export type TaskStatus = "todo" | "in_progress" | "blocked" | "done" | "settled";
+export type TaskColor = "pink" | "teal" | "purple" | "lime" | "orange" | "fuchsia";
 
 export interface TaskSession {
   readonly thread_id: string;
@@ -31,6 +32,7 @@ export interface Task {
   readonly status_note: string;
   readonly source: string;
   readonly position: number;
+  readonly color: TaskColor;
   readonly updated_at: string;
   readonly sessions: ReadonlyArray<TaskSession>;
   readonly criteria: ReadonlyArray<TaskCriterion>;
@@ -131,6 +133,7 @@ export interface TaskPatch {
   readonly notes?: string;
   readonly status?: TaskStatus;
   readonly position?: number;
+  readonly color?: TaskColor;
 }
 
 export const taskCommands = {

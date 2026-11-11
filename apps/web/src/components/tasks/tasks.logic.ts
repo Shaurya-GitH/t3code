@@ -1,4 +1,4 @@
-import type { Task, TaskStatus } from "./tasksApi";
+import type { Task, TaskColor, TaskStatus } from "./tasksApi";
 
 export const TASK_COLUMNS: ReadonlyArray<{ status: TaskStatus; label: string }> = [
   { status: "todo", label: "To do" },
@@ -66,48 +66,46 @@ export function taskSessionPrompt(task: Task): string {
   return `Work on task #${task.id}: ${task.title}\n\nFirst link this session to the task (task_link with task_id ${task.id}) and read it (task_get).`;
 }
 
-/**
- * Splits the sidebar's Active and Working threads by task. A thread linked to an open task goes
- * to that task's folder and leaves `rest`, so every thread shows once. Folders follow board order.
- */
-export function groupThreadsByTask<TThread>(
-  tasks: ReadonlyArray<Task>,
-  threads: { readonly active: ReadonlyArray<TThread>; readonly working: ReadonlyArray<TThread> },
-  keyOf: (thread: TThread) => string,
-): {
-  readonly folders: ReadonlyArray<{
-    readonly task: Task;
-    readonly active: ReadonlyArray<TThread>;
-    readonly working: ReadonlyArray<TThread>;
-  }>;
-  readonly rest: {
-    readonly active: ReadonlyArray<TThread>;
-    readonly working: ReadonlyArray<TThread>;
-  };
-} {
-  const taskIdByThreadKey = new Map<string, number>();
+/** Swatches of the task colors. They stay clear of the colors T3 uses for session status. */
+export const TASK_COLOR_HEX: Readonly<Record<TaskColor, string>> = {
+  pink: "#ec4899",
+  teal: "#14b8a6",
+  purple: "#a855f7",
+  lime: "#84cc16",
+  orange: "#f97316",
+  fuchsia: "#d946ef",
+};
+
+export const TASK_COLORS = Object.keys(TASK_COLOR_HEX) as ReadonlyArray<TaskColor>;
+
+/** The task of each linked session, keyed `environmentId:threadId`. Settled tasks included. */
+export function tasksByThreadKey(tasks: ReadonlyArray<Task>): ReadonlyMap<string, Task> {
+  const byKey = new Map<string, Task>();
   for (const task of tasks) {
-    if (task.status === "settled") continue;
     for (const session of task.sessions) {
       const route = sessionRoute(session.link);
-      if (route) taskIdByThreadKey.set(`${route.environmentId}:${route.threadId}`, task.id);
+      if (route) byKey.set(`${route.environmentId}:${route.threadId}`, task);
     }
   }
-  if (taskIdByThreadKey.size === 0) return { folders: [], rest: threads };
-  const inTask = (taskId: number) => (thread: TThread) =>
-    taskIdByThreadKey.get(keyOf(thread)) === taskId;
-  const unassigned = (thread: TThread) => !taskIdByThreadKey.has(keyOf(thread));
+  return byKey;
+}
+
+export type SessionSettleState = "open" | "running" | "settled" | "unknown";
+
+/**
+ * Which sessions settling a task settles: every open one, running or not. `running` counts the
+ * ones an agent is still working in or that wait on the user, which the user confirms first.
+ */
+export function planTaskSettle<TRef>(
+  sessions: ReadonlyArray<TRef>,
+  stateOf: (session: TRef) => SessionSettleState,
+): { readonly settle: ReadonlyArray<TRef>; readonly running: number; readonly unknown: number } {
+  const states = sessions.map((session) => ({ session, state: stateOf(session) }));
   return {
-    folders: tasks
-      .map((task) => ({
-        task,
-        active: threads.active.filter(inTask(task.id)),
-        working: threads.working.filter(inTask(task.id)),
-      }))
-      .filter((folder) => folder.active.length + folder.working.length > 0),
-    rest: {
-      active: threads.active.filter(unassigned),
-      working: threads.working.filter(unassigned),
-    },
+    settle: states
+      .filter(({ state }) => state === "open" || state === "running")
+      .map(({ session }) => session),
+    running: states.filter(({ state }) => state === "running").length,
+    unknown: states.filter(({ state }) => state === "unknown").length,
   };
 }
