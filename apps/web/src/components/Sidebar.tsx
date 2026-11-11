@@ -248,7 +248,9 @@ import {
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
-import { SidebarTaskGroups } from "./tasks/SidebarTaskGroups";
+import { SidebarTaskFolderHeader } from "./tasks/SidebarTaskFolderHeader";
+import { groupThreadsByTask } from "./tasks/tasks.logic";
+import { useTaskBoard } from "./tasks/tasksApi";
 import { TooltipProvider } from "./ui/tooltip";
 import {
   composerDraftHasUserContent,
@@ -488,8 +490,30 @@ function useSidebarThreads(input: {
     clockKey: `${nowMinute}:${snoozeWakeClock}:${inboxReturnsVersion}`,
   });
 
-  const { pinnedThreads, activeThreads, workingThreads, snoozedThreads, settledThreads } =
-    partition;
+  const { pinnedThreads, snoozedThreads, settledThreads } = partition;
+  // A thread that works on a task sits in that task's folder, not in Active or Working.
+  const taskBoard = useTaskBoard();
+  const [collapsedTaskIds, setCollapsedTaskIds] = useState<ReadonlySet<number>>(new Set());
+  const taskGrouping = groupThreadsByTask(
+    taskBoard.tasks,
+    { active: partition.activeThreads, working: partition.workingThreads },
+    threadShellKey,
+  );
+  const activeThreads = taskGrouping.rest.active;
+  const workingThreads = taskGrouping.rest.working;
+  const taskFolders = taskGrouping.folders.map((folder) => {
+    const collapsed = collapsedTaskIds.has(folder.task.id);
+    const all = [...folder.working, ...folder.active];
+    return {
+      task: folder.task,
+      collapsed,
+      count: all.length,
+      // A closed folder still shows the open thread.
+      threads: collapsed ? routeThreadOnly(all, routeRowThreadKey) : all,
+    };
+  });
+  const taskActiveThreads = taskGrouping.folders.flatMap((folder) => folder.active);
+  const taskWorkingThreads = taskGrouping.folders.flatMap((folder) => folder.working);
   // Older settled threads load in pages; the shelf lists them only as far as they are loaded.
   const olderSettledShelf = useOlderSettledShelf({
     scopes: olderSettledScopes([...serverConfigs.keys()], scopedProjectKeys),
@@ -544,6 +568,7 @@ function useSidebarThreads(input: {
         });
   const orderedThreads = [
     ...pinnedThreads,
+    ...taskFolders.flatMap((folder) => folder.threads),
     ...(projectFolders === null
       ? activeThreads
       : projectFolders.flatMap((folder) => folder.threads)),
@@ -556,6 +581,8 @@ function useSidebarThreads(input: {
     [pinnedThreads, "pinned"],
     [activeThreads, "active"],
     [workingThreads, "working"],
+    [taskActiveThreads, "active"],
+    [taskWorkingThreads, "working"],
     [snoozedThreads, "snoozed"],
     [settledThreads, "settled"],
   ] as const) {
@@ -563,10 +590,21 @@ function useSidebarThreads(input: {
   }
   return {
     ...partition,
+    activeThreads,
+    workingThreads,
+    taskFolders,
+    toggleTaskFolder: (taskId: number) =>
+      setCollapsedTaskIds((current) => {
+        const next = new Set(current);
+        if (!next.delete(taskId)) next.add(taskId);
+        return next;
+      }),
     threads,
     workingShelfEnabled,
     searchableThreads: [
       ...pinnedThreads,
+      ...taskActiveThreads,
+      ...taskWorkingThreads,
       ...activeThreads,
       ...workingThreads,
       ...snoozedThreads,
@@ -1324,6 +1362,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     toggleWorkingShelf,
     projectFolders,
     toggleProjectFolder,
+    taskFolders,
+    toggleTaskFolder,
     renderedSettledThreads,
     visibleSnoozedThreads,
     visibleWorkingThreads,
@@ -1941,6 +1981,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     // Boring mode keeps a pinned open project or one the user filtered to, so it can start a thread.
     if (
       !hasProjectFolders &&
+      taskFolders.length === 0 &&
       pinnedThreads.length +
         activeThreads.length +
         workingThreads.length +
@@ -1956,6 +1997,13 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     items.push({ kind: "marker", marker: "pinned-divider" });
     const activeRows = rowsOf(activeThreads, "active");
     items.push({ kind: "marker", marker: "active-placeholder" });
+    // Task folder rows keep their own section; the folders draw them in place of the marker.
+    for (const folder of taskFolders) {
+      for (const thread of folder.threads) {
+        const key = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
+        items.push({ kind: "thread", key, section: sectionByThreadKey.get(key) ?? "active" });
+      }
+    }
     items.push(...activeRows);
     if (workingThreads.length > 0) {
       items.push({ kind: "marker", marker: "working-header" });
@@ -3203,7 +3251,6 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           </SidebarGroup>
         }
       >
-        {isSearchingThreads ? null : <SidebarTaskGroups activeThreadKey={routeRowThreadKey} />}
         <SidebarGroup className="flex-1" role="presentation">
           {isSearchingThreads ? (
             threadSearchResults.length > 0 ? (
@@ -3447,12 +3494,42 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                           onDraftContextMenu={handleDraftContextMenu}
                         />,
                       ];
+                      const taskFolderThreadKeys = new Set(
+                        taskFolders.flatMap((folder) =>
+                          folder.threads.map((thread) =>
+                            scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+                          ),
+                        ),
+                      );
                       for (const item of sidebarListItems) {
                         if (item.kind === "thread") {
+                          // Task folders draw their rows at the Active marker below.
+                          if (taskFolderThreadKeys.has(item.key)) continue;
                           // Folders draw active rows in their own place below.
                           if (projectFolders !== null && item.section === "active") continue;
                           items.push(renderThreadRow(threadByKey.get(item.key)!, item.section));
                           continue;
+                        }
+                        if (item.marker === "active-placeholder") {
+                          for (const folder of taskFolders) {
+                            items.push(
+                              <SidebarTaskFolderHeader
+                                key={`task-folder:${folder.task.id}`}
+                                task={folder.task}
+                                collapsed={folder.collapsed}
+                                count={folder.count}
+                                onToggle={toggleTaskFolder}
+                              />,
+                            );
+                            for (const thread of folder.threads) {
+                              const key = scopedThreadKey(
+                                scopeThreadRef(thread.environmentId, thread.id),
+                              );
+                              items.push(
+                                renderThreadRow(thread, sectionByThreadKey.get(key) ?? "active"),
+                              );
+                            }
+                          }
                         }
                         if (projectFolders !== null && item.marker === "active-placeholder") {
                           for (const folder of projectFolders) {
