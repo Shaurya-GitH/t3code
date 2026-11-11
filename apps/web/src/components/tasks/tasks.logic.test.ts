@@ -6,6 +6,7 @@ import {
   positionForDrop,
   sessionRoute,
   tasksByThreadKey,
+  tasksToReopen,
 } from "./tasks.logic";
 import type { Task } from "./tasksApi";
 
@@ -85,5 +86,52 @@ describe("tasks.logic", () => {
     expect(plan.unknown).toBe(1);
     // Nothing open: the task settles alone, without asking.
     expect(planTaskSettle(["s"], () => "settled")).toEqual({ settle: [], running: 0, unknown: 0 });
+  });
+});
+
+describe("tasksToReopen", () => {
+  const settled = (overrides: Partial<Task> = {}): Task => ({
+    id: 1,
+    title: "Settled task",
+    notes: "",
+    status: "settled",
+    status_note: "",
+    source: "manual",
+    position: 0,
+    color: "pink",
+    updated_at: "",
+    settled_at: "2026-11-11T12:00:00.000Z",
+    sessions: [{ thread_id: "t1", title: "Chat", link: "" }],
+    criteria: [],
+    events: [],
+    ...overrides,
+  });
+  const state =
+    (lastUserMessageAt: string | null, isSettled = false) =>
+    () => ({
+      title: "Chat now",
+      settled: isSettled,
+      lastUserMessageAt,
+    });
+
+  it("reopens a settled task when the user wrote to one of its sessions afterwards", () => {
+    expect(tasksToReopen([settled()], state("2026-11-11T12:00:01.000Z"))).toEqual([
+      { task: settled(), sessionTitle: "Chat now" },
+    ]);
+  });
+
+  it("leaves it settled for older messages, settled sessions and unknown sessions", () => {
+    expect(tasksToReopen([settled()], state("2026-11-11T11:59:59.000Z"))).toEqual([]);
+    expect(tasksToReopen([settled()], state("2026-11-11T12:00:01.000Z", true))).toEqual([]);
+    expect(tasksToReopen([settled()], state(null))).toEqual([]);
+    expect(tasksToReopen([settled()], () => null)).toEqual([]);
+  });
+
+  it("ignores open tasks and tasks without a settle time", () => {
+    const later = state("2026-11-11T13:00:00.000Z");
+    expect(tasksToReopen([settled({ status: "done" })], later)).toEqual([]);
+    expect(tasksToReopen([settled({ settled_at: null })], later)).toEqual([]);
+    const { settled_at: _, ...olderService } = settled();
+    expect(tasksToReopen([olderService], later)).toEqual([]);
   });
 });
