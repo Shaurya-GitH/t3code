@@ -4,7 +4,8 @@ import { isListedThreadLineage } from "@t3tools/contracts";
 import { hostedThreadLink } from "@t3tools/shared/threadLinks";
 import { LinkIcon } from "lucide-react";
 
-import { useQuietThreadShells } from "../../state/entities";
+import { useProjects, useQuietThreadShells } from "../../state/entities";
+import { useEnvironmentIdentities } from "../../state/environments";
 import { RelativeTime } from "../RelativeTime";
 import { Button } from "../ui/button";
 import {
@@ -53,6 +54,14 @@ function linkableSessions(
 /** Adds an existing session to this task. */
 export function LinkSessionPicker({ task }: { task: Task }) {
   const shells = useQuietThreadShells();
+  const projects = useProjects();
+  const environments = useEnvironmentIdentities();
+  const projectTitleByKey = new Map(
+    projects.map((project) => [`${project.environmentId}:${project.id}`, project.title]),
+  );
+  const environmentLabelById = new Map(
+    environments.map((environment) => [environment.environmentId, environment.label]),
+  );
   const board = useTaskBoard();
   const items = linkableSessions(shells, task, board.tasks);
   return (
@@ -86,7 +95,16 @@ export function LinkSessionPicker({ task }: { task: Task }) {
         <ComboboxList>
           {(item: SessionItem) => (
             <ComboboxItem key={item.value} hideIndicator value={item}>
-              <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm">{item.label}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {projectTitleByKey.get(`${item.shell.environmentId}:${item.shell.projectId}`) ??
+                    item.shell.projectId}
+                  {environments.length > 1
+                    ? ` · ${environmentLabelById.get(item.shell.environmentId) ?? item.shell.environmentId}`
+                    : null}
+                </span>
+              </span>
               {item.otherTask ? (
                 <span
                   className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground"
