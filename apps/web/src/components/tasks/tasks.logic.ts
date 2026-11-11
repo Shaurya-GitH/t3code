@@ -65,3 +65,49 @@ export function sessionRoute(link: string): { environmentId: string; threadId: s
 export function taskSessionPrompt(task: Task): string {
   return `Work on task #${task.id}: ${task.title}\n\nFirst link this session to the task (task_link with task_id ${task.id}) and read it (task_get).`;
 }
+
+/**
+ * Splits the sidebar's Active and Working threads by task. A thread linked to an open task goes
+ * to that task's folder and leaves `rest`, so every thread shows once. Folders follow board order.
+ */
+export function groupThreadsByTask<TThread>(
+  tasks: ReadonlyArray<Task>,
+  threads: { readonly active: ReadonlyArray<TThread>; readonly working: ReadonlyArray<TThread> },
+  keyOf: (thread: TThread) => string,
+): {
+  readonly folders: ReadonlyArray<{
+    readonly task: Task;
+    readonly active: ReadonlyArray<TThread>;
+    readonly working: ReadonlyArray<TThread>;
+  }>;
+  readonly rest: {
+    readonly active: ReadonlyArray<TThread>;
+    readonly working: ReadonlyArray<TThread>;
+  };
+} {
+  const taskIdByThreadKey = new Map<string, number>();
+  for (const task of tasks) {
+    if (task.status === "settled") continue;
+    for (const session of task.sessions) {
+      const route = sessionRoute(session.link);
+      if (route) taskIdByThreadKey.set(`${route.environmentId}:${route.threadId}`, task.id);
+    }
+  }
+  if (taskIdByThreadKey.size === 0) return { folders: [], rest: threads };
+  const inTask = (taskId: number) => (thread: TThread) =>
+    taskIdByThreadKey.get(keyOf(thread)) === taskId;
+  const unassigned = (thread: TThread) => !taskIdByThreadKey.has(keyOf(thread));
+  return {
+    folders: tasks
+      .map((task) => ({
+        task,
+        active: threads.active.filter(inTask(task.id)),
+        working: threads.working.filter(inTask(task.id)),
+      }))
+      .filter((folder) => folder.active.length + folder.working.length > 0),
+    rest: {
+      active: threads.active.filter(unassigned),
+      working: threads.working.filter(unassigned),
+    },
+  };
+}
