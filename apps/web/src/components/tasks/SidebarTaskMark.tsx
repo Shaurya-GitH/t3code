@@ -4,6 +4,7 @@ import { create } from "zustand";
 
 import { cn } from "~/lib/utils";
 import { useNavigateToMainApp } from "../sidebar/mainAppLocation";
+import { useSidebar } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { TASK_COLOR_HEX } from "./tasks.logic";
 import type { Task } from "./tasksApi";
@@ -14,9 +15,13 @@ export const useSidebarTaskFilter = create<{ taskId: number | null }>(() => ({ t
 /** Leaves the Tasks view for the main screen with the sidebar showing only this task's sessions. */
 export function useShowTaskInSidebar() {
   const navigateToMainApp = useNavigateToMainApp();
+  const { isMobile, setOpen, setOpenMobile } = useSidebar();
   return (task: Pick<Task, "id">) => {
     useSidebarTaskFilter.setState({ taskId: task.id });
-    void navigateToMainApp();
+    void navigateToMainApp().then(() => {
+      if (isMobile) setOpenMobile(true);
+      else setOpen(true);
+    });
   };
 }
 

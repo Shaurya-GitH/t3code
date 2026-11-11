@@ -1,14 +1,14 @@
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { expect, it, vi } from "vite-plus/test";
-import { userEvent } from "vite-plus/test/browser";
+import { page, userEvent } from "vite-plus/test/browser";
 
 import { render } from "../../../test/render";
 import { useHandleNewThread } from "../../hooks/useHandleNewThread";
 import { useProjects, useQuietThreadShells } from "../../state/entities";
 import { useOlderSettledShelf, useOlderSettledShelfGrowth } from "../../state/olderSettledShelf";
 import Sidebar from "../Sidebar";
-import { SidebarProvider } from "../ui/sidebar";
-import { useSidebarTaskFilter } from "./SidebarTaskMark";
+import { SidebarProvider, SidebarTrigger } from "../ui/sidebar";
+import { useShowTaskInSidebar, useSidebarTaskFilter } from "./SidebarTaskMark";
 import { useTaskBoard, type Task } from "./tasksApi";
 
 vi.mock("../../state/entities", { spy: true });
@@ -23,6 +23,40 @@ vi.mock("../sidebar/SidebarChrome", () => ({
   SidebarChromeHeader: () => null,
   SidebarChromeFooter: () => null,
 }));
+
+function ShowTaskInSidebar() {
+  const showInSidebar = useShowTaskInSidebar();
+  return (
+    <button type="button" onClick={() => showInSidebar({ id: 2 })}>
+      Show sessions in sidebar
+    </button>
+  );
+}
+
+it.each([
+  { surface: "desktop", width: 1280 },
+  { surface: "mobile", width: 390 },
+])("opens the closed $surface sidebar when showing a task's sessions", async ({ width }) => {
+  await using stack = new AsyncDisposableStack();
+  const { innerWidth, innerHeight } = window;
+  stack.defer(() => page.viewport(innerWidth, innerHeight));
+  stack.defer(() => useSidebarTaskFilter.setState({ taskId: null }));
+  await page.viewport(width, 844);
+  await using screen = await render(
+    <SidebarProvider defaultOpen={false}>
+      <ShowTaskInSidebar />
+      <SidebarTrigger />
+    </SidebarProvider>,
+    { router: "/tasks" },
+  );
+  const trigger = screen.getByRole("button", { name: "Toggle Sidebar" });
+  await expect.element(trigger).toHaveAttribute("aria-pressed", "false");
+  await userEvent.click(screen.getByRole("button", { name: "Show sessions in sidebar" }));
+  await vi.waitFor(() => expect(screen.router?.state.location.pathname).toBe("/"));
+  expect(useSidebarTaskFilter.getState().taskId).toBe(2);
+  await expect.element(trigger).toHaveAttribute("aria-pressed", "true");
+});
+
 it("keeps Show more available under a task filter while unread settled pages remain", async () => {
   using stack = new DisposableStack();
   const previous = localStorage.getItem("t3code:sidebar:settled-expanded");
@@ -140,11 +174,9 @@ it("filters by an open task from the header menu, which leaves settled tasks out
     </SidebarProvider>,
   );
   await userEvent.click(screen.getByRole("combobox", { name: "Filter threads by task" }));
-  await expect.element(screen.getByRole("option", { name: /Open task/ })).toBeVisible();
-  await expect
-    .element(screen.getByRole("option", { name: /Settled task/ }))
-    .not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole("option", { name: /Open task/ }));
+  await expect.element(page.getByRole("option", { name: /Open task/ })).toBeVisible();
+  await expect.element(page.getByRole("option", { name: /Settled task/ })).not.toBeInTheDocument();
+  await userEvent.click(page.getByRole("option", { name: /Open task/ }));
   expect(useSidebarTaskFilter.getState().taskId).toBe(1);
   await expect
     .element(screen.getByRole("combobox", { name: "Filter threads by task: Open task" }))
