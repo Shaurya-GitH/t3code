@@ -256,6 +256,7 @@ import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrom
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { SidebarTaskFilterChip, useSidebarTaskFilter } from "./tasks/SidebarTaskMark";
 import { SidebarTaskFilterMenu } from "./tasks/SidebarTaskFilterMenu";
+import { isTaskMenuId, runSessionTaskChoice, sessionMenu } from "./tasks/sessionTaskMenu";
 import { tasksByThreadKey } from "./tasks/tasks.logic";
 import { useTaskBoard } from "./tasks/tasksApi";
 import { TooltipProvider } from "./ui/tooltip";
@@ -2645,7 +2646,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             ),
           ) ?? null;
         const clicked = await settlePromise(() =>
-          api.contextMenu.show(
+          sessionMenu(api, threadRef).show(
             buildThreadActionMenuItems({
               canOperate: readEnvironmentScope(
                 threadRef.environmentId,
@@ -2684,6 +2685,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           ),
         );
         if (clicked._tag === "Failure" || clicked.value === null) return;
+        if (isTaskMenuId(clicked.value))
+          return runSessionTaskChoice(threadRef, thread.title, clicked.value);
         if (threadActionRequiresOperate(clicked.value) && !checkThreadOperations([thread])) return;
         if (clicked.value?.startsWith("snooze:")) {
           const preset =
