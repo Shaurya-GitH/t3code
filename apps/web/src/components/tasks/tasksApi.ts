@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 import { requestConfirmDialog } from "../../confirmDialog";
 import { toastManager } from "../ui/toast";
 
-export type TaskStatus = "todo" | "in_progress" | "blocked" | "done" | "settled";
+export type TaskStatus = "todo" | "in_progress" | "blocked" | "staging" | "done" | "settled";
 export type TaskColor = "pink" | "teal" | "purple" | "lime" | "orange" | "fuchsia";
 
 export interface TaskSession {

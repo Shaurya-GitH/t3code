@@ -38,6 +38,7 @@ const STATUS_DOT: Record<TaskStatus, string> = {
   todo: "bg-muted-foreground/50",
   in_progress: "bg-info",
   blocked: "bg-warning",
+  staging: "bg-violet-500",
   done: "bg-success",
   settled: "bg-muted-foreground/30",
 };
