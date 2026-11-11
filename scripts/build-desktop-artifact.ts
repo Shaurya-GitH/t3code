@@ -2828,6 +2828,9 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   if (platform === "mac") {
     const path = yield* Path.Path;
     const repoRoot = yield* RepoRoot;
+    const selfSignIdentity = Option.getOrUndefined(
+      yield* Config.String("T3CODE_MAC_SELF_SIGN_IDENTITY").pipe(Config.option),
+    )?.trim();
     buildConfig.mac = {
       target: target === "dmg" ? [target, "zip"] : [target],
       icon: "icon.icns",
@@ -2872,6 +2875,18 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
         },
       ],
       ...(signed ? { sign: path.join(repoRoot, "scripts/sign-macos.ts") } : {}),
+      // Fork builds without an Apple certificate sign with a stable self-signed one, so
+      // Squirrel.Mac accepts updates: an ad-hoc requirement pins one build's hash, a
+      // certificate requirement pins the certificate. sign-macos.ts swaps "-" for it.
+      // No hardened runtime: library validation needs a Team ID, which this cert lacks.
+      ...(!signed && selfSignIdentity
+        ? {
+            identity: "-",
+            hardenedRuntime: false,
+            timestamp: "none",
+            sign: path.join(repoRoot, "scripts/sign-macos.ts"),
+          }
+        : {}),
       ...(macPasskeySigning
         ? {
             entitlements: macPasskeySigning.entitlementsPath,
