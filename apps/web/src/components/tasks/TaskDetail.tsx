@@ -34,6 +34,7 @@ import {
   taskStatusLabel,
 } from "./tasks.logic";
 import { useShowTaskInSidebar } from "./SidebarTaskMark";
+import { LinkSessionPicker } from "./LinkSessionPicker";
 import { useTaskStatus } from "./useTaskStatus";
 import { taskCommands, type Task, type TaskSession, type TaskStatus } from "./tasksApi";
 
@@ -194,7 +195,8 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
           >
             {task.sessions.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                No session is working on this yet. A session links itself when it picks the task up.
+                No session is working on this yet. A session links itself when it picks the task up,
+                or link one here.
               </p>
             ) : (
               <ul className="flex flex-col gap-0.5">
@@ -204,7 +206,7 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
               </ul>
             )}
             {task.status !== "settled" ? (
-              <div>
+              <div className="flex flex-wrap gap-1.5">
                 <Button
                   size="xs"
                   variant="outline"
@@ -217,6 +219,7 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
                   <PlusIcon />
                   Start a session
                 </Button>
+                <LinkSessionPicker task={task} />
               </div>
             ) : null}
           </Section>
