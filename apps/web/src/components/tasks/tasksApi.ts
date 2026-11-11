@@ -34,6 +34,8 @@ export interface Task {
   readonly position: number;
   readonly color: TaskColor;
   readonly updated_at: string;
+  /** When the task was settled; absent from services older than the field. */
+  readonly settled_at?: string | null;
   readonly sessions: ReadonlyArray<TaskSession>;
   readonly criteria: ReadonlyArray<TaskCriterion>;
   readonly events: ReadonlyArray<TaskEvent>;
@@ -137,6 +139,7 @@ export interface TaskPatch {
   readonly title?: string;
   readonly notes?: string;
   readonly status?: TaskStatus;
+  readonly status_note?: string;
   readonly position?: number;
   readonly color?: TaskColor;
 }
