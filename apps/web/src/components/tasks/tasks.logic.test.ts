@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { filterTasks, groupThreadsByTask, positionForDrop, sessionRoute } from "./tasks.logic";
+import {
+  filterTasks,
+  planTaskSettle,
+  positionForDrop,
+  sessionRoute,
+  tasksByThreadKey,
+} from "./tasks.logic";
 import type { Task } from "./tasksApi";
 
 const task = (id: number, patch: Partial<Task> = {}): Task => ({
@@ -11,6 +17,7 @@ const task = (id: number, patch: Partial<Task> = {}): Task => ({
   status_note: "",
   source: "manual",
   position: id,
+  color: "pink",
   updated_at: "2026-11-11T00:00:00.000Z",
   sessions: [],
   criteria: [],
@@ -52,21 +59,31 @@ describe("tasks.logic", () => {
     expect(sessionRoute("")).toBeNull();
   });
 
-  it("moves a thread with a task into that task's folder, once", () => {
+  it("finds the task of a session, settled tasks included", () => {
     const link = (thread: string) => `https://app.t3.codes/threads/env/${thread}`;
     const session = (thread: string) => ({ thread_id: thread, title: thread, link: link(thread) });
-    const tasks = [
-      task(1, { sessions: [session("a"), session("w")] }),
-      task(2, { status: "settled", sessions: [session("s")] }),
-      task(3, { sessions: [session("gone")] }),
-    ];
-    const grouped = groupThreadsByTask(
-      tasks,
-      { active: ["env:a", "env:s", "env:free"], working: ["env:w"] },
-      (key) => key,
+    const open = task(1, { sessions: [session("a"), session("b")] });
+    const settled = task(2, { status: "settled", sessions: [session("s")] });
+    const byKey = tasksByThreadKey([
+      open,
+      settled,
+      task(3, { sessions: [{ ...session("x"), link: "" }] }),
+    ]);
+    expect(byKey.get("env:a")).toBe(open);
+    expect(byKey.get("env:s")).toBe(settled);
+    expect(byKey.size).toBe(3);
+  });
+
+  it("settles every open session of a task, and counts the running ones", () => {
+    const states = { a: "open", r: "running", s: "settled", gone: "unknown" } as const;
+    const plan = planTaskSettle(
+      ["a", "r", "s", "gone"],
+      (ref) => states[ref as keyof typeof states],
     );
-    expect(grouped.folders).toEqual([{ task: tasks[0], active: ["env:a"], working: ["env:w"] }]);
-    // A settled task releases its threads; a task with no live thread gets no folder.
-    expect(grouped.rest).toEqual({ active: ["env:s", "env:free"], working: [] });
+    expect(plan.settle).toEqual(["a", "r"]);
+    expect(plan.running).toBe(1);
+    expect(plan.unknown).toBe(1);
+    // Nothing open: the task settles alone, without asking.
+    expect(planTaskSettle(["s"], () => "settled")).toEqual({ settle: [], running: 0, unknown: 0 });
   });
 });
