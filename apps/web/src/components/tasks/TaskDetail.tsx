@@ -9,6 +9,7 @@ import {
   UnlinkIcon,
   UserIcon,
   XIcon,
+  ListFilterIcon,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -32,6 +33,7 @@ import {
   taskSessionPrompt,
   taskStatusLabel,
 } from "./tasks.logic";
+import { useShowTaskInSidebar } from "./SidebarTaskMark";
 import { useTaskStatus } from "./useTaskStatus";
 import { taskCommands, type Task, type TaskSession, type TaskStatus } from "./tasksApi";
 
@@ -40,6 +42,7 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
   const setTaskStatus = useTaskStatus();
   const { met, total } = criteriaProgress(task);
   const navigate = useNavigate();
+  const showInSidebar = useShowTaskInSidebar();
   return (
     <aside
       aria-label={`Task ${task.id}`}
@@ -85,6 +88,9 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
               Settle
             </Button>
           ) : null}
+          <IconAction label="Show sessions in sidebar" onClick={() => showInSidebar(task)}>
+            <ListFilterIcon />
+          </IconAction>
           <IconAction
             label="Delete task"
             onClick={() => {
