@@ -590,6 +590,11 @@ function useSidebarThreads(input: {
     settledCount,
     olderSettledShelf,
     hiddenSettledCount: Math.max(0, settledCount - visibleSettledThreads.length),
+    hasMoreFilteredSettled:
+      filterTask !== null &&
+      [...olderSettledShelf.environments.values()].some(
+        ({ older, pages }) => older !== null && pages.frontier !== null,
+      ),
     showMoreSettled: () =>
       setSettledTail((current) => ({
         scopeKey: current.scopeKey,
@@ -1322,6 +1327,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     settledCount,
     olderSettledShelf,
     hiddenSettledCount,
+    hasMoreFilteredSettled,
     showMoreSettled,
     settledShelfExpanded,
     toggleSettledShelf,
@@ -1950,6 +1956,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     // Boring mode keeps a pinned open project or one the user filtered to, so it can start a thread.
     if (
       !hasProjectFolders &&
+      !hasMoreFilteredSettled &&
       pinnedThreads.length +
         activeThreads.length +
         workingThreads.length +
@@ -3636,7 +3643,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                       }
                       return items;
                     })()}
-                    {settledShelfExpanded && hiddenSettledCount > 0 ? (
+                    {settledShelfExpanded && (hiddenSettledCount > 0 || hasMoreFilteredSettled) ? (
                       <li className="list-none">
                         <button
                           type="button"
@@ -3655,7 +3662,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                             ? "Loading"
                             : olderSettledShelf.failed
                               ? "Could not load older threads. Retry"
-                              : `Show ${Math.min(hiddenSettledCount, SETTLED_TAIL_PAGE_COUNT)} more`}
+                              : hasMoreFilteredSettled
+                                ? "Show more"
+                                : `Show ${Math.min(hiddenSettledCount, SETTLED_TAIL_PAGE_COUNT)} more`}
                         </button>
                       </li>
                     ) : null}
@@ -3666,6 +3675,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           ) : null}
           {!isSearchingThreads &&
           !hasProjectFolders &&
+          !hasMoreFilteredSettled &&
           visibleDraftSessionCount === 0 &&
           pinnedThreads.length +
             activeThreads.length +
