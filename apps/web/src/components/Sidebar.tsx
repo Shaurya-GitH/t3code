@@ -248,7 +248,7 @@ import {
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
-import { SidebarTaskFolderHeader } from "./tasks/SidebarTaskFolderHeader";
+import { SidebarTaskFolderHeader, sidebarTaskFolderRowId } from "./tasks/SidebarTaskFolderHeader";
 import { groupThreadsByTask } from "./tasks/tasks.logic";
 import { useTaskBoard } from "./tasks/tasksApi";
 import { TooltipProvider } from "./ui/tooltip";
@@ -508,8 +508,8 @@ function useSidebarThreads(input: {
       task: folder.task,
       collapsed,
       count: all.length,
-      // A closed folder still shows the open thread.
-      threads: collapsed ? routeThreadOnly(all, routeRowThreadKey) : all,
+      // A closed task folder hides all its threads, the open one too.
+      threads: collapsed ? [] : all,
     };
   });
   const taskActiveThreads = taskGrouping.folders.flatMap((folder) => folder.active);
@@ -3366,7 +3366,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                       const renderThreadRow = (
                         thread: EnvironmentThreadShell,
                         section: SidebarSection,
-                        // The tree row of the project folder this row sits in.
+                        // The tree row of the project or task folder this row sits in.
                         folderRow?: string,
                       ) => {
                         const threadKey = scopedThreadKey(
@@ -3526,7 +3526,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 scopeThreadRef(thread.environmentId, thread.id),
                               );
                               items.push(
-                                renderThreadRow(thread, sectionByThreadKey.get(key) ?? "active"),
+                                renderThreadRow(
+                                  thread,
+                                  sectionByThreadKey.get(key) ?? "active",
+                                  sidebarTaskFolderRowId(folder.task.id),
+                                ),
                               );
                             }
                           }
