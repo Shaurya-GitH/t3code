@@ -107,6 +107,11 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
+/** The board as last read, for code outside React such as a context menu. */
+export function readTaskBoard(): TaskBoardSnapshot {
+  return snapshot;
+}
+
 /** The board, refreshed while anything on screen reads it. */
 export function useTaskBoard(): TaskBoardSnapshot {
   return useSyncExternalStore(subscribe, () => snapshot);
@@ -161,6 +166,14 @@ export const taskCommands = {
   updateCriterion: (id: number, patch: { text?: string; done?: boolean }) =>
     mutate("PATCH", `/criteria/${id}`, patch),
   removeCriterion: (id: number) => mutate("DELETE", `/criteria/${id}`),
+  /** Adds a session to a task; a session has one task, so this moves it from any other. */
+  linkSession: (input: { threadId: string; taskId: number; title: string; link: string }) =>
+    mutate("POST", "/sessions", {
+      thread_id: input.threadId,
+      task_id: input.taskId,
+      title: input.title,
+      link: input.link,
+    }),
   unlinkSession: (threadId: string) =>
     mutate("DELETE", `/sessions/${encodeURIComponent(threadId)}`),
 };
