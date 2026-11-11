@@ -138,6 +138,10 @@ describe("tasksToReopen", () => {
     expect(tasksToReopen([marked("2026-11-11T12:10:00.000Z")], ahead)).toEqual([]);
     expect(tasksToReopen([marked("")], state("2026-11-11T11:00:00.000Z"))).toHaveLength(1);
     expect(tasksToReopen([marked("")], state(null))).toEqual([]);
+    expect(tasksToReopen([marked("not-a-date")], behind)).toEqual([]);
+    expect(tasksToReopen([marked("not-a-date")], state("2026-11-11T12:00:01.000Z"))).toHaveLength(
+      1,
+    );
   });
 
   it("ignores open tasks and tasks without a settle time", () => {
