@@ -48,6 +48,7 @@ describe("tasks.logic", () => {
       environmentId: "env-1",
       threadId: "thread-9",
     });
+    expect(sessionRoute("https://app.t3.codes/threads/env-1/mcp%3Aabc")?.threadId).toBe("mcp:abc");
     expect(sessionRoute("")).toBeNull();
   });
 });
