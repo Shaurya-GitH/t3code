@@ -81,35 +81,37 @@ function refreshNotice() {
   setNotice({
     action: latest.action,
     count: group.length,
-    undo: async () => {
-      const current = group.filter((entry) => liveUndos.includes(entry) && entry.claim.isCurrent());
-      liveUndos = liveUndos.filter((entry) => !group.includes(entry));
-      // Claim before awaiting to prevent repeated actions restoring a group twice.
-      for (const entry of current) entry.claim.finish();
-      refreshNotice();
-      await Promise.all(
-        current.map(async ({ undo, failureTitle }) => {
-          const reportFailure = (error: unknown) => {
-            toastManager.add(
-              stackedThreadToast({
-                type: "error",
-                title: failureTitle,
-                description: error instanceof Error ? error.message : "An error occurred.",
-              }),
-            );
-          };
-          try {
-            const result = await undo();
-            if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
-              reportFailure(squashAtomCommandFailure(result));
-            }
-          } catch (error) {
-            reportFailure(error);
-          }
-        }),
-      );
-    },
+    undo: () => undoEntries(group),
   });
+}
+
+async function undoEntries(group: UndoOptions[]) {
+  const current = group.filter((entry) => liveUndos.includes(entry) && entry.claim.isCurrent());
+  liveUndos = liveUndos.filter((entry) => !group.includes(entry));
+  // Claim before awaiting to prevent repeated actions restoring a group twice.
+  for (const entry of current) entry.claim.finish();
+  refreshNotice();
+  await Promise.all(
+    current.map(async ({ undo, failureTitle }) => {
+      const reportFailure = (error: unknown) => {
+        toastManager.add(
+          stackedThreadToast({
+            type: "error",
+            title: failureTitle,
+            description: error instanceof Error ? error.message : "An error occurred.",
+          }),
+        );
+      };
+      try {
+        const result = await undo();
+        if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+          reportFailure(squashAtomCommandFailure(result));
+        }
+      } catch (error) {
+        reportFailure(error);
+      }
+    }),
+  );
 }
 
 ThreadUndo.subscribe(refreshNotice);
@@ -133,7 +135,11 @@ export function releaseThreadUndoShortcut() {
 
 /** Shows one compact confirmation for the currently undoable thread actions. */
 export function showThreadUndoNotice(options: UndoOptions) {
-  if (!options.claim.isCurrent()) return;
+  const handle = {
+    undo: () => undoEntries([options]),
+    canUndo: () => liveUndos.includes(options) && options.claim.isCurrent(),
+  };
+  if (!options.claim.isCurrent()) return handle;
   liveUndos.push(options);
   shortcutClaimed = true;
   refreshNotice();
@@ -147,4 +153,5 @@ export function showThreadUndoNotice(options: UndoOptions) {
     }
     refreshNotice();
   }, 5_000);
+  return handle;
 }

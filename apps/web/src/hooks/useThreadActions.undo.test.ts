@@ -252,6 +252,28 @@ describe("settle and snooze Undo", () => {
     expect(commands.unsettle).toHaveBeenCalledOnce();
   });
 
+  it("keeps task Undo scoped across grouped settles, snoozes and expiry", async () => {
+    const actions = useThreadActions();
+    const first = await actions.settleThread(target);
+    const other = { ...target, threadId: ThreadId.make("other-task") };
+    await actions.settleThread(other);
+    await actions.snoozeThread(other, "2100-01-01T00:00:00.000Z");
+    expect(first._tag).toBe("Success");
+    if (first._tag !== "Success") throw new Error("Settle failed");
+    await first.value.undo();
+    expect(commands.unsettle).toHaveBeenCalledExactlyOnceWith({
+      environmentId: target.environmentId,
+      input: { threadId: target.threadId, reason: "user" },
+    });
+    await first.value.undo();
+    expect(commands.unsettle).toHaveBeenCalledOnce();
+    const expired = await actions.settleThread(target);
+    vi.advanceTimersByTime(5_000);
+    if (expired._tag !== "Success") throw new Error("Settle failed");
+    await expired.value.undo();
+    expect(commands.unsettle).toHaveBeenCalledOnce();
+  });
+
   it("re-pins and re-snoozes a thread that settling had cleared", async () => {
     const snoozedUntil = "2030-01-01T09:00:00.000Z";
     threadShell.pinnedAt = "2026-01-01T00:00:00.000Z";
