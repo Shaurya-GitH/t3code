@@ -144,7 +144,8 @@ export function tasksToReopen(
       if (!state || state.settled || !state.lastUserMessageAt) continue;
       const last = Date.parse(state.lastUserMessageAt);
       const mark = session.settle_mark;
-      if (typeof mark === "string" ? mark === "" || last > Date.parse(mark) : last > settledAt) {
+      const markedAt = typeof mark === "string" ? Date.parse(mark) : NaN;
+      if (mark === "" || last > (Number.isNaN(markedAt) ? settledAt : markedAt)) {
         return [{ task, sessionTitle: state.title || session.title || "a session" }];
       }
     }
