@@ -129,7 +129,6 @@ export function TasksPage() {
           ) : (
             <TaskBoard
               tasks={visibleTasks}
-              suggestions={query ? [] : board.suggestions}
               selectedTaskId={selectedTask?.id ?? null}
               composerStatus={composerStatus}
               onComposerStatusChange={setComposerStatus}
