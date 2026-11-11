@@ -101,3 +101,52 @@ it("keeps Show more available under a task filter while unread settled pages rem
     expect(vi.mocked(useOlderSettledShelf).mock.lastCall?.[0].visibleCount).toBeGreaterThan(10),
   );
 });
+
+it("filters by an open task from the header menu, which leaves settled tasks out", async () => {
+  using stack = new DisposableStack();
+  stack.defer(() => {
+    useSidebarTaskFilter.setState({ taskId: null });
+    vi.restoreAllMocks();
+  });
+  const base: Task = {
+    id: 1,
+    title: "Open task",
+    notes: "",
+    status: "in_progress",
+    status_note: "",
+    source: "manual",
+    position: 0,
+    color: "teal",
+    updated_at: "",
+    sessions: [],
+    criteria: [],
+    events: [],
+  };
+  const settled: Task = { ...base, id: 2, title: "Settled task", status: "settled" };
+  vi.mocked(useTaskBoard).mockReturnValue({ state: "ready", tasks: [base, settled] });
+  vi.mocked(useProjects).mockReturnValue([]);
+  vi.mocked(useQuietThreadShells).mockReturnValue([]);
+  vi.mocked(useHandleNewThread).mockReturnValue({
+    activeDraftThread: null,
+    activeThread: null,
+    defaultProjectRef: null,
+    handleNewThread: vi.fn().mockResolvedValue(null),
+    routeDraftId: null,
+    routeThreadRef: null,
+  });
+  await using screen = await render(
+    <SidebarProvider>
+      <Sidebar routeReveal={{ observedKey: null, pendingKey: null }} />
+    </SidebarProvider>,
+  );
+  await userEvent.click(screen.getByRole("combobox", { name: "Filter threads by task" }));
+  await expect.element(screen.getByRole("option", { name: /Open task/ })).toBeVisible();
+  await expect
+    .element(screen.getByRole("option", { name: /Settled task/ }))
+    .not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("option", { name: /Open task/ }));
+  expect(useSidebarTaskFilter.getState().taskId).toBe(1);
+  await expect
+    .element(screen.getByRole("combobox", { name: "Filter threads by task: Open task" }))
+    .toBeVisible();
+});
