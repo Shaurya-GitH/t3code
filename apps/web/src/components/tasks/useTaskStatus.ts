@@ -116,27 +116,49 @@ export function useTaskStatus() {
           });
           return false;
         }
-        const results = await Promise.all(plan.settle.map((ref) => settleThread(ref)));
+        const sessionMarks: Record<string, string> = Object.fromEntries(
+          routed
+            .filter(({ ref }) => !plan.settle.includes(ref))
+            .flatMap(({ threadId, ref }) => {
+              const shell = readThreadShell(ref);
+              return shell ? [[threadId, lastUserMessageAt(shell) ?? ""]] : [];
+            }),
+        );
+        const results = await Promise.all(
+          routed
+            .filter(({ ref }) => plan.settle.includes(ref))
+            .map(async ({ threadId, ref }) => {
+              const result = await settleThread(ref);
+              const shell = readThreadShell(ref);
+              if (shell) sessionMarks[threadId] = lastUserMessageAt(shell) ?? "";
+              return result;
+            }),
+        );
         const successful = results.flatMap((result) =>
           result?._tag === "Success" ? [result.value] : [],
         );
         const failed = results.length - successful.length;
-        const sessionMarks = Object.fromEntries(
-          routed.flatMap(({ threadId, ref }) => {
-            const shell = readThreadShell(ref);
-            return shell ? [[threadId, lastUserMessageAt(shell) ?? ""]] : [];
-          }),
-        );
+        const resumed = routed.some(({ threadId, ref }) => {
+          const shell = readThreadShell(ref);
+          return (
+            shell &&
+            sessionMarks[threadId] !== undefined &&
+            (lastUserMessageAt(shell) ?? "") !== sessionMarks[threadId]
+          );
+        });
         if (
           failed > 0 ||
+          resumed ||
           !(await taskCommands.update(task.id, { ...patch, session_marks: sessionMarks }))
         ) {
           await Promise.all(successful.map((result) => result.undo()));
-          if (failed > 0)
+          if (failed > 0 || resumed)
             toastManager.add({
               type: "warning",
               title: `Task #${task.id} was not settled`,
-              description: `${plural(failed, "session")} could not be settled. Stop any running work and answer or cancel pending requests before trying again.`,
+              description: resumed
+                ? "A linked session received a new message. Settle the task again when its sessions are ready."
+                : `${plural(failed, "session")} could not be settled. Stop any running work and answer or cancel pending requests before trying again.`,
             });
           return false;
         }

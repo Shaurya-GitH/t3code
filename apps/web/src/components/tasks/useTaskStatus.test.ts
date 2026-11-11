@@ -156,6 +156,33 @@ it("recovers an unloaded session before planning the cascade and releases its mo
   expect(mocks.settle).toHaveBeenCalledOnce();
 });
 
+it("keeps the task open when a settled session receives a message while another settles", async () => {
+  const { task, change, undo } = setup();
+  const before = "2026-11-11T10:00:00.000Z";
+  let firstMessage = before;
+  mocks.read.mockImplementation(({ threadId }: { threadId: string }) => ({
+    label: "Done",
+    latestUserMessageAt: threadId === "thread" ? firstMessage : before,
+  }));
+  mocks.settle.mockImplementation(async ({ threadId }: { threadId: string }) => {
+    if (threadId === "other") {
+      await Promise.resolve();
+      firstMessage = "2026-11-11T10:01:00.000Z";
+    }
+    return { _tag: "Success", value: { undo, canUndo: () => true } };
+  });
+  const linked = {
+    ...task,
+    sessions: [
+      ...task.sessions,
+      { thread_id: "other", title: "Other", link: "https://app.t3.codes/threads/env/other" },
+    ],
+  };
+  expect(await change(linked, { status: "settled" })).toBe(false);
+  expect(mocks.update).not.toHaveBeenCalled();
+  expect(undo).toHaveBeenCalledTimes(2);
+});
+
 it("task Undo restores only its successful settles, once, and refuses expired handles", async () => {
   const { task, change, undo } = setup();
   mocks.read.mockReturnValue({ label: "Done" });
