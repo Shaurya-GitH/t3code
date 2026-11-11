@@ -877,13 +877,13 @@ export function useThreadActions() {
     if (wokeAt !== null) {
       markThreadVisited(scopedThreadKey(target), wokeAt);
     }
-    showThreadUndoNotice({
+    const undo = showThreadUndoNotice({
       action: "Settled",
       claim: action,
       undo: () => runUndoPlan(target, undoPlan),
       failureTitle: m(msg("Failed to undo settle")),
     });
-    return result;
+    return AsyncResult.success({ ...result.value, ...undo });
   };
 
   const confirmAndUnpinThread = async (target: ScopedThreadRef) => {

@@ -103,41 +103,45 @@ function refreshNotice() {
   setNotice({
     action: latest.action,
     count: group.length,
-    undo: async () => {
-      const current = group.filter((entry) => liveUndos.includes(entry) && entry.claim.isCurrent());
-      liveUndos = liveUndos.filter((entry) => !group.includes(entry));
-      // Claim before awaiting to prevent repeated actions restoring a group twice.
-      for (const entry of current) entry.claim.finish();
-      refreshNotice();
-      let undone = 0;
-      await Promise.all(
-        current.map(async ({ undo, failureTitle }) => {
-          const reportFailure = (error: unknown) => {
-            toastManager.add(
-              stackedThreadToast({
-                type: "error",
-                title: failureTitle,
-                description: thrownErrorMessage(error, m) ?? m(msg("An error occurred.")),
-              }),
-            );
-          };
-          try {
-            const result = await undo();
-            if (result._tag === "Success") undone++;
-            else if (!isAtomCommandInterrupted(result)) {
-              reportFailure(squashAtomCommandFailure(result));
-            }
-          } catch (error) {
-            reportFailure(error);
-          }
-        }),
-      );
-      // Failures already raise a toast, so only what was actually restored is spoken.
-      if (undone > 0) {
-        announce(m(UNDONE[latest.action], { count: undone }));
-      }
-    },
+    undo: () => undoEntries(group),
   });
+}
+
+async function undoEntries(group: UndoOptions[]) {
+  const current = group.filter((entry) => liveUndos.includes(entry) && entry.claim.isCurrent());
+  liveUndos = liveUndos.filter((entry) => !group.includes(entry));
+  // Claim before awaiting to prevent repeated actions restoring a group twice.
+  for (const entry of current) entry.claim.finish();
+  refreshNotice();
+  let undone = 0;
+  await Promise.all(
+    current.map(async ({ undo, failureTitle }) => {
+      const reportFailure = (error: unknown) => {
+        toastManager.add(
+          stackedThreadToast({
+            type: "error",
+            title: failureTitle,
+            description: thrownErrorMessage(error, m) ?? m(msg("An error occurred.")),
+          }),
+        );
+      };
+      try {
+        const result = await undo();
+        if (result._tag === "Success") undone++;
+        else if (!isAtomCommandInterrupted(result)) {
+          reportFailure(squashAtomCommandFailure(result));
+        }
+      } catch (error) {
+        reportFailure(error);
+      }
+    }),
+  );
+  // Failures already raise a toast, so only what was actually restored is spoken.
+  // Every entry in a group shares one action.
+  const action = group[0]?.action;
+  if (action && undone > 0) {
+    announce(m(UNDONE[action], { count: undone }));
+  }
 }
 
 ThreadUndo.subscribe(refreshNotice);
@@ -161,7 +165,11 @@ export function releaseThreadUndoShortcut() {
 
 /** Shows one compact confirmation for the currently undoable thread actions. */
 export function showThreadUndoNotice(options: UndoOptions) {
-  if (!options.claim.isCurrent()) return;
+  const handle = {
+    undo: () => undoEntries([options]),
+    canUndo: () => liveUndos.includes(options) && options.claim.isCurrent(),
+  };
+  if (!options.claim.isCurrent()) return handle;
   liveUndos.push(options);
   shortcutClaimed = true;
   refreshNotice();
@@ -175,4 +183,5 @@ export function showThreadUndoNotice(options: UndoOptions) {
     }
     refreshNotice();
   }, 5_000);
+  return handle;
 }
