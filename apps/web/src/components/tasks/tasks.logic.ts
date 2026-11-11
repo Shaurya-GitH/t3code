@@ -4,6 +4,7 @@ export const TASK_COLUMNS: ReadonlyArray<{ status: TaskStatus; label: string }> 
   { status: "todo", label: "To do" },
   { status: "in_progress", label: "In progress" },
   { status: "blocked", label: "Blocked" },
+  { status: "staging", label: "Staging" },
   { status: "done", label: "Done" },
   { status: "settled", label: "Settled" },
 ];
