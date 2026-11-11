@@ -4,7 +4,6 @@ import {
   ListChecksIcon,
   MessagesSquareIcon,
   PlusIcon,
-  SparklesIcon,
 } from "lucide-react";
 import { useState, type DragEvent } from "react";
 
@@ -24,7 +23,7 @@ import { ScrollArea } from "../ui/scroll-area";
 import { Textarea } from "../ui/textarea";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { criteriaProgress, positionForDrop, TASK_COLUMNS } from "./tasks.logic";
-import { taskCommands, type Task, type TaskStatus, type TaskSuggestion } from "./tasksApi";
+import { taskCommands, type Task, type TaskStatus } from "./tasksApi";
 
 const STATUS_DOT: Record<TaskStatus, string> = {
   todo: "bg-muted-foreground/50",
@@ -45,14 +44,12 @@ interface DropTarget {
 
 export function TaskBoard({
   tasks,
-  suggestions,
   selectedTaskId,
   composerStatus,
   onComposerStatusChange,
   onOpenTask,
 }: {
   tasks: ReadonlyArray<Task>;
-  suggestions: ReadonlyArray<TaskSuggestion>;
   selectedTaskId: number | null;
   composerStatus: TaskStatus | null;
   onComposerStatusChange: (status: TaskStatus | null) => void;
@@ -94,50 +91,6 @@ export function TaskBoard({
   return (
     <ScrollArea className="min-h-0 min-w-0 flex-1">
       <div className="flex h-full min-h-0 gap-3 p-4">
-        {suggestions.length > 0 ? (
-          <section
-            aria-label="Suggested by agents"
-            className="flex min-w-56 max-w-96 flex-1 basis-0 flex-col gap-2"
-          >
-            <ColumnHeader
-              label="Suggested"
-              count={suggestions.length}
-              icon={<SparklesIcon className="size-3.5 text-muted-foreground" aria-hidden />}
-            />
-            <ul className="flex flex-col gap-2">
-              {suggestions.map((suggestion) => (
-                <li
-                  key={suggestion.id}
-                  className="flex flex-col gap-2 rounded-lg border border-dashed p-2.5"
-                >
-                  <p className="text-sm font-medium leading-5 wrap-anywhere">{suggestion.title}</p>
-                  {suggestion.reason ? (
-                    <p className="text-xs text-muted-foreground wrap-anywhere">
-                      {suggestion.reason}
-                    </p>
-                  ) : null}
-                  <div className="flex gap-1.5">
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() => void taskCommands.acceptSuggestion(suggestion.id)}
-                    >
-                      Add to To do
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => void taskCommands.dismissSuggestion(suggestion.id)}
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
         {TASK_COLUMNS.map(({ status, label }) => {
           const column = tasks.filter((task) => task.status === status);
           const isDropTarget = dropTarget?.status === status;
@@ -439,7 +392,7 @@ function TaskCard({
             {task.sessions.length}
           </span>
         ) : null}
-        {task.source !== "manual" && task.source !== "agent" && task.source !== "suggestion" ? (
+        {task.source !== "manual" && task.source !== "agent" ? (
           <Badge variant="outline" size="sm">
             {task.source}
           </Badge>
