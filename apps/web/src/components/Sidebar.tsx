@@ -249,6 +249,7 @@ import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { SidebarTaskFilterChip, useSidebarTaskFilter } from "./tasks/SidebarTaskMark";
+import { SidebarTaskFilterMenu } from "./tasks/SidebarTaskFilterMenu";
 import { tasksByThreadKey } from "./tasks/tasks.logic";
 import { useTaskBoard } from "./tasks/tasksApi";
 import { TooltipProvider } from "./ui/tooltip";
@@ -2997,6 +2998,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           <SidebarGroup className="z-[1]">
             <SidebarThreadHeader
               hasProjects={projectGroups.length > 0}
+              taskScope={<SidebarTaskFilterMenu />}
               projectScope={
                 <Combobox
                   items={projectScopeItems}
