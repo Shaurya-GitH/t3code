@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { filterTasks, positionForDrop, sessionRoute } from "./tasks.logic";
+import { filterTasks, groupThreadsByTask, positionForDrop, sessionRoute } from "./tasks.logic";
 import type { Task } from "./tasksApi";
 
 const task = (id: number, patch: Partial<Task> = {}): Task => ({
@@ -50,5 +50,23 @@ describe("tasks.logic", () => {
     });
     expect(sessionRoute("https://app.t3.codes/threads/env-1/mcp%3Aabc")?.threadId).toBe("mcp:abc");
     expect(sessionRoute("")).toBeNull();
+  });
+
+  it("moves a thread with a task into that task's folder, once", () => {
+    const link = (thread: string) => `https://app.t3.codes/threads/env/${thread}`;
+    const session = (thread: string) => ({ thread_id: thread, title: thread, link: link(thread) });
+    const tasks = [
+      task(1, { sessions: [session("a"), session("w")] }),
+      task(2, { status: "settled", sessions: [session("s")] }),
+      task(3, { sessions: [session("gone")] }),
+    ];
+    const grouped = groupThreadsByTask(
+      tasks,
+      { active: ["env:a", "env:s", "env:free"], working: ["env:w"] },
+      (key) => key,
+    );
+    expect(grouped.folders).toEqual([{ task: tasks[0], active: ["env:a"], working: ["env:w"] }]);
+    // A settled task releases its threads; a task with no live thread gets no folder.
+    expect(grouped.rest).toEqual({ active: ["env:s", "env:free"], working: [] });
   });
 });
