@@ -49,10 +49,11 @@ export interface TaskBoardSnapshot {
 // The task service (github.com/Shaurya-GitH/t3-tasks) runs beside T3 Code on this machine; agents
 // write to it through its MCP tools. ponytail: called directly on loopback, so a remote client
 // (phone, app.t3.codes) sees the board as offline. Move it behind a server RPC if that matters.
-// VITE_T3_TASKS_URL points a dev build at a test service, so end-to-end runs leave real tasks alone.
+// A dev build may use VITE_T3_TASKS_URL (a test service); a release build never does.
 const TASKS_API =
-  (import.meta.env as Partial<Record<string, string>>).VITE_T3_TASKS_URL?.trim() ||
-  "http://127.0.0.1:4777/api";
+  (import.meta.env.DEV
+    ? (import.meta.env as Partial<Record<string, string>>).VITE_T3_TASKS_URL?.trim()
+    : undefined) || "http://127.0.0.1:4777/api";
 const POLL_MS = 2500;
 
 let snapshot: TaskBoardSnapshot = { state: "loading", tasks: [] };
