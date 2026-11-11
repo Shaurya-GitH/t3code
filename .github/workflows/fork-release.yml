@@ -1,0 +1,105 @@
+name: Fork release
+
+# Rebuilds this fork (the tasks branch) on each new official T3 Code release and
+# on every push to tasks, and publishes a GitHub Release the installed app updates from.
+on:
+  schedule:
+    - cron: "23 */4 * * *"
+  push:
+    branches: [tasks]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Release even if nothing changed
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: fork-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository != 'pingdotgg/t3code'
+    runs-on: macos-15
+    timeout-minutes: 75
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tasks
+          fetch-depth: 0
+
+      - name: Plan the release
+        id: plan
+        env:
+          FORCE: ${{ inputs.force || false }}
+        run: |
+          set +e
+          bash scripts/fork-release-plan.sh
+          status=$?
+          if [[ $status == 3 ]]; then
+            title="Tasks changes conflict with the newest official release"
+            if ! gh issue list --state open --search "in:title \"$title\"" --json number -q '.[0].number' | grep -q .; then
+              gh issue create --title "$title" --body "The fork's commits on \`tasks\` do not apply cleanly on the newest official release. The fork keeps serving its last release until the commits are moved onto it by hand. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            fi
+          fi
+          exit $status
+
+      - name: Set up dependencies
+        if: steps.plan.outputs.skip == 'false'
+        uses: ./.github/actions/setup-ci-deps
+
+      - name: Set up Rust
+        if: steps.plan.outputs.skip == 'false'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Load the signing certificate
+        if: steps.plan.outputs.skip == 'false'
+        env:
+          P12: ${{ secrets.FORK_MAC_SIGNING_P12 }}
+          P12_PASSWORD: ${{ secrets.FORK_MAC_SIGNING_P12_PASSWORD }}
+        run: |
+          [[ -n $P12 && -n $P12_PASSWORD ]] || { echo "FORK_MAC_SIGNING_P12 secrets are missing; unsigned builds cannot update." >&2; exit 1; }
+          printf '%s' "$P12" | base64 -D > "$RUNNER_TEMP/signing.p12"
+          eval "$(bash scripts/fork-signing-keychain.sh "$RUNNER_TEMP/signing.p12" "$P12_PASSWORD")"
+          echo "T3CODE_MAC_SELF_SIGN_IDENTITY=$T3CODE_MAC_SELF_SIGN_IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Build
+        if: steps.plan.outputs.skip == 'false'
+        env:
+          T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ github.repository }}
+        run: |
+          # The official cloud settings (T3 Connect relay, sign-in), as the fork ships them.
+          export $(grep -E '^T3CODE_(CLERK_PUBLISHABLE_KEY|CLERK_JWT_TEMPLATE|CLERK_CLI_OAUTH_CLIENT_ID|RELAY_URL)=' .env.example | xargs)
+          vp run dist:desktop:artifact --platform mac --target dmg --arch arm64 \
+            --build-version "${{ steps.plan.outputs.version }}" --output-dir release
+
+      - name: Check the signature
+        if: steps.plan.outputs.skip == 'false'
+        run: |
+          app=$(mktemp -d)
+          ditto -x -k release/*.zip "$app"
+          requirement=$(codesign -dr - "$app"/*.app 2>&1)
+          echo "$requirement"
+          grep -q 'certificate leaf = H"' <<<"$requirement" || { echo "The app is not signed with the fork certificate." >&2; exit 1; }
+          test -f release/latest-mac.yml
+
+      - name: Publish
+        if: steps.plan.outputs.skip == 'false'
+        run: |
+          version=${{ steps.plan.outputs.version }}
+          gh release create "v$version" release/*.dmg release/*.zip release/*.blockmap release/latest-mac.yml \
+            --target "${{ steps.plan.outputs.source_sha }}" \
+            --title "T3 Code $version (official ${{ steps.plan.outputs.upstream }} + Tasks)" \
+            --notes "$(printf '%s\n\n%s\n\n%s' \
+              "Official T3 Code ${{ steps.plan.outputs.upstream }} with the Tasks board. Installed copies update from here through the app's update button." \
+              "First install: \`curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/tasks/scripts/install-fork.sh | bash\`" \
+              "${{ steps.plan.outputs.marker }}")"
