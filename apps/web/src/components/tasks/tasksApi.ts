@@ -10,6 +10,8 @@ export interface TaskSession {
   readonly thread_id: string;
   readonly title: string;
   readonly link: string;
+  /** The session's last user message when its task was settled ('' for none); absent if unknown. */
+  readonly settle_mark?: string | null;
 }
 
 export interface TaskCriterion {
@@ -151,6 +153,8 @@ export interface TaskPatch {
   readonly status?: TaskStatus;
   readonly status_note?: string;
   readonly expected_settled_at?: string;
+  /** On settling: each session's last user message by thread id, read from its own server. */
+  readonly session_marks?: Readonly<Record<string, string>>;
   readonly position?: number;
   readonly color?: TaskColor;
 }

@@ -11,7 +11,12 @@ import { waitForAtomValue } from "../../state/waitForAtomValue";
 import { readThreadShell, waitForThreadShell } from "../../state/entities";
 import { resolveThreadStatusPill } from "../Sidebar.logic";
 import { toastManager } from "../ui/toast";
-import { planTaskSettle, sessionRoute, type SessionSettleState } from "./tasks.logic";
+import {
+  lastUserMessageAt,
+  planTaskSettle,
+  sessionRoute,
+  type SessionSettleState,
+} from "./tasks.logic";
 import { taskCommands, type Task, type TaskPatch } from "./tasksApi";
 
 // Labels of a session an agent is still busy in, or that waits on the user.
@@ -47,12 +52,21 @@ export function useTaskStatus() {
     if (patch.status !== "settled" || task.status === "settled") {
       return taskCommands.update(task.id, patch);
     }
-    const refs = task.sessions.flatMap((session) => {
+    const routed = task.sessions.flatMap((session) => {
       const route = sessionRoute(session.link);
       return route
-        ? [scopeThreadRef(EnvironmentId.make(route.environmentId), ThreadId.make(route.threadId))]
+        ? [
+            {
+              threadId: session.thread_id,
+              ref: scopeThreadRef(
+                EnvironmentId.make(route.environmentId),
+                ThreadId.make(route.threadId),
+              ),
+            },
+          ]
         : [];
     });
+    const refs = routed.map(({ ref }) => ref);
     const mounts = refs.filter((ref) => sessionState(ref) === "unknown");
     const releases = mounts.map((ref) =>
       threadFamilies.mount(appAtomRegistry, ref.environmentId, ref.threadId),
@@ -107,7 +121,16 @@ export function useTaskStatus() {
           result?._tag === "Success" ? [result.value] : [],
         );
         const failed = results.length - successful.length;
-        if (failed > 0 || !(await taskCommands.update(task.id, patch))) {
+        const sessionMarks = Object.fromEntries(
+          routed.flatMap(({ threadId, ref }) => {
+            const shell = readThreadShell(ref);
+            return shell ? [[threadId, lastUserMessageAt(shell) ?? ""]] : [];
+          }),
+        );
+        if (
+          failed > 0 ||
+          !(await taskCommands.update(task.id, { ...patch, session_marks: sessionMarks }))
+        ) {
           await Promise.all(successful.map((result) => result.undo()));
           if (failed > 0)
             toastManager.add({

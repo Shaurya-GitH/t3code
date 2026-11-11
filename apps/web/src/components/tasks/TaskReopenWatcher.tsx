@@ -3,7 +3,7 @@ import { useEffect, useEffectEvent } from "react";
 
 import { useThreadShells } from "../../state/entities";
 import { toastManager } from "../ui/toast";
-import { sessionRoute, tasksToReopen } from "./tasks.logic";
+import { lastUserMessageAt, sessionRoute, tasksToReopen } from "./tasks.logic";
 import { taskCommands, useTaskBoard } from "./tasksApi";
 
 // Tasks being reopened, so a re-render before the service answers does not reopen one twice.
@@ -30,10 +30,7 @@ export function TaskReopenWatcher() {
             ? {
                 title: shell.title,
                 settled: shell.settledOverride === "settled",
-                lastUserMessageAt:
-                  shell.latestUserAuthoredMessageAt === undefined
-                    ? shell.latestUserMessageAt
-                    : shell.latestUserAuthoredMessageAt,
+                lastUserMessageAt: lastUserMessageAt(shell),
               }
             : null;
         })
