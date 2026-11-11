@@ -119,17 +119,23 @@ export function useTaskBoard(): TaskBoardSnapshot {
   return useSyncExternalStore(subscribe, () => snapshot);
 }
 
-async function mutate(method: string, path: string, body?: unknown): Promise<boolean> {
+async function mutate(
+  method: string,
+  path: string,
+  body?: unknown,
+  { quiet = false } = {},
+): Promise<boolean> {
   try {
     await request(method, path, body);
     await refreshTaskBoard();
     return true;
   } catch (error) {
-    toastManager.add({
-      type: "error",
-      title: "Could not update the task",
-      description: error instanceof Error ? error.message : "The task service did not answer.",
-    });
+    if (!quiet)
+      toastManager.add({
+        type: "error",
+        title: "Could not update the task",
+        description: error instanceof Error ? error.message : "The task service did not answer.",
+      });
     await refreshTaskBoard();
     return false;
   }
@@ -140,6 +146,7 @@ export interface TaskPatch {
   readonly notes?: string;
   readonly status?: TaskStatus;
   readonly status_note?: string;
+  readonly expected_settled_at?: string;
   readonly position?: number;
   readonly color?: TaskColor;
 }
@@ -147,7 +154,12 @@ export interface TaskPatch {
 export const taskCommands = {
   create: (input: { title: string; status?: TaskStatus }) => mutate("POST", "/tasks", input),
   update: (id: number, patch: TaskPatch) => {
+    // Automatic reopens wait for the settlement precondition before displaying a move, and fail
+    // quietly: another window may have reopened the task first, and the watcher retries.
+    if (patch.expected_settled_at !== undefined)
+      return mutate("PATCH", `/tasks/${id}`, patch, { quiet: true });
     // Show a move at once; the refresh that follows corrects it if the service refused.
+    lastBody = "";
     publish({
       ...snapshot,
       tasks: snapshot.tasks
