@@ -45,8 +45,8 @@ jobs:
           status=$?
           if [[ $status == 3 ]]; then
             title="Tasks changes conflict with the newest official release"
-            if ! gh issue list --state open --search "in:title \"$title\"" --json number -q '.[0].number' | grep -q .; then
-              gh issue create --title "$title" --body "The fork's commits on \`tasks\` do not apply cleanly on the newest official release. The fork keeps serving its last release until the commits are moved onto it by hand. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            if ! gh issue list --repo "${{ github.repository }}" --state open --search "in:title \"$title\"" --json number -q '.[0].number' | grep -q .; then
+              gh issue create --repo "${{ github.repository }}" --title "$title" --body "The fork's commits on \`tasks\` do not apply cleanly on the newest official release. The fork keeps serving its last release until the commits are moved onto it by hand. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             fi
           fi
           exit $status
@@ -96,7 +96,7 @@ jobs:
         if: steps.plan.outputs.skip == 'false'
         run: |
           version=${{ steps.plan.outputs.version }}
-          gh release create "v$version" release/*.dmg release/*.zip release/*.blockmap release/latest-mac.yml \
+          gh release create "v$version" --repo "${{ github.repository }}" release/*.dmg release/*.zip release/*.blockmap release/latest-mac.yml \
             --target "${{ steps.plan.outputs.source_sha }}" \
             --title "T3 Code $version (official ${{ steps.plan.outputs.upstream }} + Tasks)" \
             --notes "$(printf '%s\n\n%s\n\n%s' \
