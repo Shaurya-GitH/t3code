@@ -55,7 +55,10 @@ export function criteriaProgress(task: Task): { met: number; total: number } {
 /** The app route of a session, read from the thread link the agent recorded. */
 export function sessionRoute(link: string): { environmentId: string; threadId: string } | null {
   const match = /\/threads\/([^/?#]+)\/([^/?#]+)/u.exec(link);
-  return match?.[1] && match[2] ? { environmentId: match[1], threadId: match[2] } : null;
+  // Thread ids can carry characters the link escapes, such as the colon in `mcp:...`.
+  return match?.[1] && match[2]
+    ? { environmentId: decodeURIComponent(match[1]), threadId: decodeURIComponent(match[2]) }
+    : null;
 }
 
 /** The prompt of a thread started from a ticket, so the session links itself first. */

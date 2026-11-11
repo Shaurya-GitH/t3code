@@ -37,16 +37,9 @@ export interface Task {
   readonly events: ReadonlyArray<TaskEvent>;
 }
 
-export interface TaskSuggestion {
-  readonly id: number;
-  readonly title: string;
-  readonly reason: string;
-}
-
 export interface TaskBoardSnapshot {
   readonly state: "loading" | "ready" | "offline";
   readonly tasks: ReadonlyArray<Task>;
-  readonly suggestions: ReadonlyArray<TaskSuggestion>;
 }
 
 // The task service (github.com/Shaurya-GitH/t3-tasks) runs beside T3 Code on this machine; agents
@@ -55,7 +48,7 @@ export interface TaskBoardSnapshot {
 const TASKS_API = "http://127.0.0.1:4777/api";
 const POLL_MS = 2500;
 
-let snapshot: TaskBoardSnapshot = { state: "loading", tasks: [], suggestions: [] };
+let snapshot: TaskBoardSnapshot = { state: "loading", tasks: [] };
 let lastBody = "";
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 const listeners = new Set<() => void>();
@@ -85,8 +78,10 @@ async function refreshTaskBoard(): Promise<void> {
     const body = await request("GET", "/tasks");
     if (body === lastBody && snapshot.state === "ready") return;
     lastBody = body;
-    const data = JSON.parse(body) as Pick<TaskBoardSnapshot, "tasks" | "suggestions">;
-    publish({ state: "ready", tasks: data.tasks, suggestions: data.suggestions });
+    const data = JSON.parse(body) as Pick<TaskBoardSnapshot, "tasks">;
+    // The service is a separate process; a shape change must show "offline", not crash the app.
+    if (!Array.isArray(data?.tasks)) throw new Error("unexpected /tasks response");
+    publish({ state: "ready", tasks: data.tasks });
   } catch {
     lastBody = "";
     if (snapshot.state !== "offline") publish({ ...snapshot, state: "offline" });
@@ -165,6 +160,4 @@ export const taskCommands = {
   removeCriterion: (id: number) => mutate("DELETE", `/criteria/${id}`),
   unlinkSession: (threadId: string) =>
     mutate("DELETE", `/sessions/${encodeURIComponent(threadId)}`),
-  acceptSuggestion: (id: number) => mutate("POST", `/suggestions/${id}/accept`),
-  dismissSuggestion: (id: number) => mutate("DELETE", `/suggestions/${id}`),
 };
