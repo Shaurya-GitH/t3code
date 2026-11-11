@@ -22,7 +22,14 @@ import {
 import { ScrollArea } from "../ui/scroll-area";
 import { Textarea } from "../ui/textarea";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { criteriaProgress, positionForDrop, TASK_COLUMNS } from "./tasks.logic";
+import {
+  criteriaProgress,
+  positionForDrop,
+  TASK_COLOR_HEX,
+  TASK_COLORS,
+  TASK_COLUMNS,
+} from "./tasks.logic";
+import { useTaskStatus } from "./useTaskStatus";
 import { taskCommands, type Task, type TaskStatus } from "./tasksApi";
 
 const STATUS_DOT: Record<TaskStatus, string> = {
@@ -58,6 +65,7 @@ export function TaskBoard({
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [settledOpen, setSettledOpen] = useState(false);
+  const setTaskStatus = useTaskStatus();
 
   const dragOver = (status: TaskStatus) => (event: DragEvent<HTMLElement>) => {
     if (draggingId === null) return;
@@ -82,7 +90,10 @@ export function TaskBoard({
     if (draggingId !== null) {
       const column = tasks.filter((task) => task.status === status && task.id !== draggingId);
       const index = dropTarget?.status === status ? dropTarget.index : 0;
-      void taskCommands.update(draggingId, { status, position: positionForDrop(column, index) });
+      const dragged = tasks.find((task) => task.id === draggingId);
+      if (dragged) {
+        void setTaskStatus(dragged, { status, position: positionForDrop(column, index) });
+      }
     }
     setDraggingId(null);
     setDropTarget(null);
@@ -329,6 +340,7 @@ function TaskCard({
   onDragEnd: () => void;
 }) {
   const { met, total } = criteriaProgress(task);
+  const setTaskStatus = useTaskStatus();
   return (
     <div
       role="button"
@@ -338,7 +350,7 @@ function TaskCard({
       aria-label={`Open task ${task.id}: ${task.title}`}
       aria-current={selected ? "true" : undefined}
       className={cn(
-        "group/task flex cursor-pointer flex-col gap-1.5 rounded-lg border bg-card p-2.5 text-card-foreground outline-none hover:border-ring/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+        "group/task relative flex cursor-pointer flex-col gap-1.5 overflow-hidden rounded-lg border bg-card p-2.5 ps-3.5 text-card-foreground outline-none hover:border-ring/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         selected && "border-ring/70 bg-accent/50",
         dragging && "opacity-40",
       )}
@@ -357,6 +369,11 @@ function TaskCard({
       }}
       onDragEnd={onDragEnd}
     >
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-1"
+        style={{ backgroundColor: TASK_COLOR_HEX[task.color] }}
+      />
       <div className="flex items-start gap-1">
         <p className="line-clamp-3 min-w-0 flex-1 text-sm font-medium leading-5 wrap-anywhere">
           {task.title}
@@ -404,7 +421,7 @@ function TaskCard({
             variant="outline"
             onClick={(event) => {
               event.stopPropagation();
-              void taskCommands.update(task.id, { status: "settled" });
+              void setTaskStatus(task, { status: "settled" });
             }}
           >
             Settle
@@ -417,6 +434,7 @@ function TaskCard({
 
 /** Everything a drag does, without a drag. */
 function TaskCardMenu({ task }: { task: Task }) {
+  const setTaskStatus = useTaskStatus();
   return (
     <Menu>
       <MenuTrigger
@@ -437,10 +455,24 @@ function TaskCardMenu({ task }: { task: Task }) {
           {TASK_COLUMNS.filter((column) => column.status !== task.status).map((column) => (
             <MenuItem
               key={column.status}
-              onClick={() => void taskCommands.update(task.id, { status: column.status })}
+              onClick={() => void setTaskStatus(task, { status: column.status })}
             >
               <TaskStatusDot status={column.status} />
               {column.label}
+            </MenuItem>
+          ))}
+        </MenuGroup>
+        <MenuSeparator />
+        <MenuGroup>
+          <MenuGroupLabel>Color</MenuGroupLabel>
+          {TASK_COLORS.filter((color) => color !== task.color).map((color) => (
+            <MenuItem key={color} onClick={() => void taskCommands.update(task.id, { color })}>
+              <span
+                aria-hidden
+                className="size-2.5 rounded-full"
+                style={{ backgroundColor: TASK_COLOR_HEX[color] }}
+              />
+              <span className="capitalize">{color}</span>
             </MenuItem>
           ))}
         </MenuGroup>
