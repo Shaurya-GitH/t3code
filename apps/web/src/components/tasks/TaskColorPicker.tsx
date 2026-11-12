@@ -88,7 +88,7 @@ function TaskColorPanel({ task }: { task: Task }) {
         />
       </div>
       <div className="grid gap-3 p-3">
-        <div className="relative pt-2" onPointerDownCapture={startDrag}>
+        <div className="relative pt-2">
           {/* Where the other open tasks sit on the hue strip. */}
           {others.map((other) => (
             <span
@@ -101,12 +101,14 @@ function TaskColorPanel({ task }: { task: Task }) {
               }}
             />
           ))}
-          <ColorHueSlider
-            label="Task color hue"
-            value={hsv.h}
-            onChange={(h) => change({ ...hsv, h })}
-            onInteractionEnd={endDrag}
-          />
+          <div onPointerDownCapture={startDrag}>
+            <ColorHueSlider
+              label="Task color hue"
+              value={hsv.h}
+              onChange={(h) => change({ ...hsv, h })}
+              onInteractionEnd={endDrag}
+            />
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -142,7 +144,11 @@ function TaskColorPanel({ task }: { task: Task }) {
         <Button
           size="xs"
           variant="outline"
-          onClick={() => void taskCommands.update(task.id, { color: "auto" })}
+          onClick={() => {
+            setHsv(hexToHsv(saved));
+            setHexDraft(null);
+            void taskCommands.update(task.id, { color: "auto" });
+          }}
         >
           <PaletteIcon />
           Most distinct color
