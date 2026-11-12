@@ -98,7 +98,7 @@ jobs:
           version=${{ steps.plan.outputs.version }}
           gh release create "v$version" --repo "${{ github.repository }}" release/*.dmg release/*.zip release/*.blockmap release/latest-mac.yml \
             --target "${{ steps.plan.outputs.source_sha }}" \
-            --title "T3 Code $version (official ${{ steps.plan.outputs.upstream }} + Tasks)" \
+            --title "S3 Code $version (official ${{ steps.plan.outputs.upstream }} + Tasks)" \
             --notes "$(printf '%s\n\n%s\n\n%s' \
               "Official T3 Code ${{ steps.plan.outputs.upstream }} with the Tasks board. Installed copies update from here through the app's update button." \
               "First install: \`curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/tasks/scripts/install-fork.sh | bash\`" \

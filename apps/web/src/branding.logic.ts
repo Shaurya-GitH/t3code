@@ -4,7 +4,8 @@ export function formatAppDisplayName(input: {
   readonly baseName: string;
   readonly stageLabel: string;
 }): string {
-  if (input.stageLabel.trim().toLowerCase() === "latest") {
+  // S3 Code shows no stage for its regular releases; Dev and Nightly keep theirs.
+  if (["latest", "beta"].includes(input.stageLabel.trim().toLowerCase())) {
     return input.baseName;
   }
 
