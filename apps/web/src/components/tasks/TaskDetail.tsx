@@ -1,9 +1,10 @@
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowUpRightIcon,
   BotIcon,
+  FolderIcon,
   PlusIcon,
   Trash2Icon,
   UnlinkIcon,
@@ -14,7 +15,8 @@ import {
 import { useState } from "react";
 
 import { cn } from "~/lib/utils";
-import { useThreadShell } from "../../state/entities";
+import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
+import { useProjects, useThreadShell } from "../../state/entities";
 import { buildThreadRouteParams } from "../../threadRoutes";
 import { RelativeTime } from "../RelativeTime";
 import { Button } from "../ui/button";
@@ -28,15 +30,19 @@ import { TaskStatusDot } from "./TaskBoard";
 import {
   criteriaProgress,
   sessionRoute,
-  TASK_COLOR_HEX,
   TASK_COLUMNS,
   taskSessionPrompt,
   taskStatusLabel,
 } from "./tasks.logic";
 import { useShowTaskInSidebar } from "./SidebarTaskMark";
 import { LinkSessionPicker } from "./LinkSessionPicker";
+import { TaskColorPicker } from "./TaskColorPicker";
 import { useTaskStatus } from "./useTaskStatus";
 import { taskCommands, type Task, type TaskSession, type TaskStatus } from "./tasksApi";
+
+const NO_PROJECT = "none";
+const projectKey = (environmentId: string, projectId: string) =>
+  `${environmentId}\u0000${projectId}`;
 
 /** The ticket: what done means, who is working on it, and what happened. */
 export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void }) {
@@ -44,17 +50,28 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
   const { met, total } = criteriaProgress(task);
   const navigate = useNavigate();
   const showInSidebar = useShowTaskInSidebar();
+  const handleNewThread = useNewThreadHandler();
+  const projects = useProjects().filter((project) => !project.isScratch && !project.archivedAt);
+  const project = projects.find(
+    (candidate) =>
+      candidate.environmentId === task.environment_id && candidate.id === task.project_id,
+  );
+  const startSession = () => {
+    if (project) {
+      void handleNewThread(scopeProjectRef(project.environmentId, project.id), {
+        prompt: taskSessionPrompt(task),
+      });
+    } else {
+      void navigate({ href: `/new?prompt=${encodeURIComponent(taskSessionPrompt(task))}` });
+    }
+  };
   return (
     <aside
       aria-label={`Task ${task.id}`}
       className="flex w-full min-w-0 shrink-0 flex-col border-s bg-background max-md:absolute max-md:inset-0 max-md:z-10 md:w-[26rem]"
     >
       <header className="flex min-h-12 shrink-0 items-center gap-1 border-b ps-4 pe-2">
-        <span
-          aria-hidden
-          className="size-2.5 shrink-0 rounded-full"
-          style={{ backgroundColor: TASK_COLOR_HEX[task.color] }}
-        />
+        <TaskColorPicker task={task} />
         <span className="font-mono text-xs tabular-nums text-muted-foreground">#{task.id}</span>
         <Select
           value={task.status}
@@ -124,6 +141,46 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
             {task.status_note ? (
               <p className="text-sm text-muted-foreground wrap-anywhere">{task.status_note}</p>
             ) : null}
+            <Select
+              value={project ? projectKey(project.environmentId, project.id) : NO_PROJECT}
+              onValueChange={(value) => {
+                const picked = projects.find(
+                  (candidate) => projectKey(candidate.environmentId, candidate.id) === value,
+                );
+                void taskCommands.update(task.id, {
+                  environment_id: picked?.environmentId ?? null,
+                  project_id: picked?.id ?? null,
+                });
+              }}
+            >
+              <SelectTrigger
+                aria-label="Project"
+                size="compact"
+                variant="ghost"
+                className="-ms-2 w-auto min-w-0 self-start"
+              >
+                <SelectValue>
+                  <span className="flex items-center gap-1.5">
+                    <FolderIcon className="size-3.5" aria-hidden />
+                    {project?.title ??
+                      (task.project_id ? "Project not on this machine" : "No project")}
+                  </span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectPopup align="start" alignItemWithTrigger={false}>
+                <SelectItem value={NO_PROJECT}>No project</SelectItem>
+                {projects
+                  .toSorted((a, b) => a.title.localeCompare(b.title))
+                  .map((candidate) => (
+                    <SelectItem
+                      key={projectKey(candidate.environmentId, candidate.id)}
+                      value={projectKey(candidate.environmentId, candidate.id)}
+                    >
+                      {candidate.title}
+                    </SelectItem>
+                  ))}
+              </SelectPopup>
+            </Select>
           </div>
 
           <Section title="Description">
@@ -207,17 +264,9 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
             )}
             {task.status !== "settled" ? (
               <div className="flex flex-wrap gap-1.5">
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() =>
-                    void navigate({
-                      href: `/new?prompt=${encodeURIComponent(taskSessionPrompt(task))}`,
-                    })
-                  }
-                >
+                <Button size="xs" variant="outline" onClick={startSession}>
                   <PlusIcon />
-                  Start a session
+                  {project ? `Start a session in ${project.title}` : "Start a session"}
                 </Button>
                 <LinkSessionPicker task={task} />
               </div>

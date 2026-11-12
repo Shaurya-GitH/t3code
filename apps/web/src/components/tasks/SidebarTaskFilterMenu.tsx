@@ -11,7 +11,7 @@ import {
   ComboboxTrigger,
 } from "../ui/combobox";
 import { useSidebarTaskFilter } from "./SidebarTaskMark";
-import { TASK_COLOR_HEX } from "./tasks.logic";
+import { taskColor } from "./tasks.logic";
 import { useTaskBoard, type Task } from "./tasksApi";
 
 type TaskFilterItem = { value: number | null; label: string; task: Task | null };
@@ -53,7 +53,7 @@ export function SidebarTaskFilterMenu() {
           <span
             aria-hidden
             className="size-2.5 rounded-full"
-            style={{ backgroundColor: TASK_COLOR_HEX[current.color] }}
+            style={{ backgroundColor: taskColor(current.color) }}
           />
         ) : (
           <ListTodoIcon className="size-4" />
@@ -74,7 +74,7 @@ export function SidebarTaskFilterMenu() {
                 <span
                   aria-hidden
                   className="mx-0.75 size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: TASK_COLOR_HEX[item.task.color] }}
+                  style={{ backgroundColor: taskColor(item.task.color) }}
                 />
               ) : (
                 <ListTodoIcon className="size-4 shrink-0" aria-hidden />
