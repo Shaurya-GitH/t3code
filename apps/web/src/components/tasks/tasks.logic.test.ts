@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  colorClash,
   filterTasks,
   planTaskSettle,
   positionForDrop,
@@ -150,5 +151,22 @@ describe("tasksToReopen", () => {
     expect(tasksToReopen([settled({ settled_at: null })], later)).toEqual([]);
     const { settled_at: _, ...olderService } = settled();
     expect(tasksToReopen([olderService], later)).toEqual([]);
+  });
+});
+
+describe("colorClash", () => {
+  const board = [
+    task(1, { color: "#ec4899" }),
+    task(2, { color: "orange" }),
+    task(3, { color: "#14b8a6", status: "settled" }),
+  ];
+  it("finds the open task a color looks like, named colors included", () => {
+    expect(colorClash("#ee4a9b", task(9), board)?.id).toBe(1);
+    expect(colorClash("#f97417", task(9), board)?.id).toBe(2);
+  });
+  it("ignores the task itself, settled tasks and distinct colors", () => {
+    expect(colorClash("#ee4a9b", task(1), board)).toBeUndefined();
+    expect(colorClash("#14b8a6", task(9), board)).toBeUndefined();
+    expect(colorClash("#3b82f6", task(9), board)).toBeUndefined();
   });
 });
