@@ -23,13 +23,7 @@ import {
 import { ScrollArea } from "../ui/scroll-area";
 import { Textarea } from "../ui/textarea";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import {
-  criteriaProgress,
-  positionForDrop,
-  TASK_COLOR_HEX,
-  TASK_COLORS,
-  TASK_COLUMNS,
-} from "./tasks.logic";
+import { criteriaProgress, positionForDrop, taskColor, TASK_COLUMNS } from "./tasks.logic";
 import { useShowTaskInSidebar } from "./SidebarTaskMark";
 import { useTaskStatus } from "./useTaskStatus";
 import { taskCommands, type Task, type TaskStatus } from "./tasksApi";
@@ -375,7 +369,7 @@ function TaskCard({
       <span
         aria-hidden
         className="absolute inset-y-0 left-0 w-1"
-        style={{ backgroundColor: TASK_COLOR_HEX[task.color] }}
+        style={{ backgroundColor: taskColor(task.color) }}
       />
       <div className="flex items-start gap-1">
         <p className="line-clamp-3 min-w-0 flex-1 text-sm font-medium leading-5 wrap-anywhere">
@@ -468,20 +462,6 @@ function TaskCardMenu({ task }: { task: Task }) {
             >
               <TaskStatusDot status={column.status} />
               {column.label}
-            </MenuItem>
-          ))}
-        </MenuGroup>
-        <MenuSeparator />
-        <MenuGroup>
-          <MenuGroupLabel>Color</MenuGroupLabel>
-          {TASK_COLORS.filter((color) => color !== task.color).map((color) => (
-            <MenuItem key={color} onClick={() => void taskCommands.update(task.id, { color })}>
-              <span
-                aria-hidden
-                className="size-2.5 rounded-full"
-                style={{ backgroundColor: TASK_COLOR_HEX[color] }}
-              />
-              <span className="capitalize">{color}</span>
             </MenuItem>
           ))}
         </MenuGroup>

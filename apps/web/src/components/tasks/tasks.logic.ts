@@ -1,4 +1,4 @@
-import type { Task, TaskColor, TaskStatus } from "./tasksApi";
+import type { Task, TaskStatus } from "./tasksApi";
 
 export const TASK_COLUMNS: ReadonlyArray<{ status: TaskStatus; label: string }> = [
   { status: "todo", label: "To do" },
@@ -67,8 +67,8 @@ export function taskSessionPrompt(task: Task): string {
   return `Work on task #${task.id}: ${task.title}\n\nFirst link this session to the task (task_link with task_id ${task.id}) and read it (task_get).`;
 }
 
-/** Swatches of the task colors. They stay clear of the colors T3 uses for session status. */
-export const TASK_COLOR_HEX: Readonly<Record<TaskColor, string>> = {
+// Named colors from task services before 0.4.0, which sent a name instead of a hex color.
+const LEGACY_HEX: Readonly<Record<string, string>> = {
   pink: "#ec4899",
   teal: "#14b8a6",
   purple: "#a855f7",
@@ -77,7 +77,49 @@ export const TASK_COLOR_HEX: Readonly<Record<TaskColor, string>> = {
   fuchsia: "#d946ef",
 };
 
-export const TASK_COLORS = Object.keys(TASK_COLOR_HEX) as ReadonlyArray<TaskColor>;
+/** A task's color as CSS. */
+export function taskColor(color: string): string {
+  return LEGACY_HEX[color] ?? color;
+}
+
+/** The task service refuses an open task's color closer than this to another's (OKLab distance). */
+const MIN_COLOR_DISTANCE = 0.08;
+
+function oklab(hex: string): [number, number, number] {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = Number.parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  }) as [number, number, number];
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ];
+}
+
+/** How different two hex colors look; the same formula as the task service. */
+function colorDistance(a: string, b: string): number {
+  const p = oklab(taskColor(a));
+  const q = oklab(taskColor(b));
+  return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+}
+
+/** The open task whose color is too close to `color`, ignoring `task` itself. */
+export function colorClash(
+  color: string,
+  task: Pick<Task, "id">,
+  tasks: ReadonlyArray<Task>,
+): Task | undefined {
+  return tasks.find(
+    (other) =>
+      other.id !== task.id &&
+      other.status !== "settled" &&
+      colorDistance(color, other.color) < MIN_COLOR_DISTANCE,
+  );
+}
 
 /** The task of each linked session, keyed `environmentId:threadId`. Settled tasks included. */
 export function tasksByThreadKey(tasks: ReadonlyArray<Task>): ReadonlyMap<string, Task> {
