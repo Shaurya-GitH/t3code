@@ -6,7 +6,7 @@ import { cn } from "~/lib/utils";
 import { useNavigateToMainApp } from "../sidebar/mainAppLocation";
 import { useSidebar } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { TASK_COLOR_HEX } from "./tasks.logic";
+import { taskColor } from "./tasks.logic";
 import type { Task } from "./tasksApi";
 
 /** The task the sidebar shows sessions of; null shows every session. */
@@ -53,7 +53,7 @@ export function SidebarTaskMark({ task }: { task: Task }) {
             "ms-0.5 h-[calc(100%-12px)] w-[3px] rounded-full transition-[width] group-hover/task-mark:w-[5px] group-focus-visible/task-mark:w-[5px]",
             settled && "opacity-40",
           )}
-          style={{ backgroundColor: TASK_COLOR_HEX[task.color] }}
+          style={{ backgroundColor: taskColor(task.color) }}
         />
       </TooltipTrigger>
       <TooltipPopup side="right">{label}</TooltipPopup>
@@ -69,7 +69,7 @@ export function SidebarTaskFilterChip({ task }: { task: Task }) {
       <span
         aria-hidden
         className="size-2 shrink-0 rounded-full"
-        style={{ backgroundColor: TASK_COLOR_HEX[task.color] }}
+        style={{ backgroundColor: taskColor(task.color) }}
       />
       <button
         type="button"

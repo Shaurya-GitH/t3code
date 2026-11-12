@@ -4,7 +4,6 @@ import { requestConfirmDialog } from "../../confirmDialog";
 import { toastManager } from "../ui/toast";
 
 export type TaskStatus = "todo" | "in_progress" | "blocked" | "staging" | "done" | "settled";
-export type TaskColor = "pink" | "teal" | "purple" | "lime" | "orange" | "fuchsia";
 
 export interface TaskSession {
   readonly thread_id: string;
@@ -34,7 +33,11 @@ export interface Task {
   readonly status_note: string;
   readonly source: string;
   readonly position: number;
-  readonly color: TaskColor;
+  /** A hex color (older services send a name; see taskColor). */
+  readonly color: string;
+  /** The T3 project a session started from the board opens in; absent from older services. */
+  readonly environment_id?: string | null;
+  readonly project_id?: string | null;
   readonly updated_at: string;
   /** When the task was settled; absent from services older than the field. */
   readonly settled_at?: string | null;
@@ -156,7 +159,11 @@ export interface TaskPatch {
   /** On settling: each session's last user message by thread id, read from its own server. */
   readonly session_marks?: Readonly<Record<string, string>>;
   readonly position?: number;
-  readonly color?: TaskColor;
+  /** A hex color, or "auto" for the most distinct free one. */
+  readonly color?: string;
+  /** Set together; null clears both. */
+  readonly environment_id?: string | null;
+  readonly project_id?: string | null;
 }
 
 export const taskCommands = {
@@ -171,7 +178,16 @@ export const taskCommands = {
     publish({
       ...snapshot,
       tasks: snapshot.tasks
-        .map((task) => (task.id === id ? { ...task, ...patch } : task))
+        // "auto" is the service's to pick, so the card keeps its color until the refresh.
+        .map((task) =>
+          task.id === id
+            ? {
+                ...task,
+                ...patch,
+                color: patch.color === "auto" ? task.color : (patch.color ?? task.color),
+              }
+            : task,
+        )
         .toSorted((a, b) => a.position - b.position || b.id - a.id),
     });
     return mutate("PATCH", `/tasks/${id}`, patch);
