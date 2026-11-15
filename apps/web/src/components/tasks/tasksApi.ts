@@ -25,6 +25,13 @@ export interface TaskEvent {
   readonly text: string;
 }
 
+/** A note the user left on the ticket; agents read notes but cannot write them. */
+export interface TaskNote {
+  readonly id: number;
+  readonly at: string;
+  readonly text: string;
+}
+
 export interface Task {
   readonly id: number;
   readonly title: string;
@@ -44,6 +51,8 @@ export interface Task {
   readonly sessions: ReadonlyArray<TaskSession>;
   readonly criteria: ReadonlyArray<TaskCriterion>;
   readonly events: ReadonlyArray<TaskEvent>;
+  /** Newest first; absent from services older than notes. */
+  readonly human_notes?: ReadonlyArray<TaskNote>;
 }
 
 export interface TaskBoardSnapshot {
@@ -195,7 +204,7 @@ export const taskCommands = {
   /** Deleting a ticket drops its criteria and history, so it asks first. */
   remove: async (task: Pick<Task, "id" | "title">) => {
     const confirmed = await requestConfirmDialog(
-      `Delete task #${task.id} "${task.title}"? Its criteria and history go with it.`,
+      `Delete task #${task.id} "${task.title}"? Its criteria, notes and history go with it.`,
       { variant: "destructive" },
     );
     return confirmed ? mutate("DELETE", `/tasks/${task.id}`) : false;
@@ -205,6 +214,8 @@ export const taskCommands = {
   updateCriterion: (id: number, patch: { text?: string; done?: boolean }) =>
     mutate("PATCH", `/criteria/${id}`, patch),
   removeCriterion: (id: number) => mutate("DELETE", `/criteria/${id}`),
+  /** Works on any task, settled ones too. */
+  addNote: (taskId: number, text: string) => mutate("POST", `/tasks/${taskId}/notes`, { text }),
   /** Adds a session to a task; a session has one task, so this moves it from any other. */
   linkSession: (input: { threadId: string; taskId: number; title: string; link: string }) =>
     mutate("POST", "/sessions", {

@@ -273,6 +273,25 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
             ) : null}
           </Section>
 
+          <Section
+            title="Notes"
+            aside={task.human_notes?.length ? String(task.human_notes.length) : undefined}
+          >
+            <NoteComposer taskId={task.id} />
+            {task.human_notes?.length ? (
+              <ol className="flex flex-col gap-3">
+                {task.human_notes.map((note) => (
+                  <li key={note.id} className="flex flex-col gap-0.5">
+                    <span className="text-xs text-muted-foreground">
+                      <RelativeTime timestamp={note.at} />
+                    </span>
+                    <p className="text-sm whitespace-pre-wrap wrap-anywhere">{note.text}</p>
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+          </Section>
+
           {task.events.length > 0 ? (
             <Section title="Activity">
               <ol className="flex flex-col gap-2">
@@ -401,6 +420,48 @@ function CriterionComposer({ taskId }: { taskId: number }) {
         void taskCommands.addCriterion(taskId, text.trim());
       }}
     />
+  );
+}
+
+/** Notes are the user's own; agents read them. Kept until the service has saved them. */
+function NoteComposer({ taskId }: { taskId: number }) {
+  const [text, setText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const submit = async () => {
+    const note = text.trim();
+    if (!note || saving) return;
+    setSaving(true);
+    if (await taskCommands.addNote(taskId, note)) setText("");
+    setSaving(false);
+  };
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Textarea
+        value={text}
+        aria-label="Add a note"
+        placeholder="Add a note. Agents on this task can read it."
+        onChange={(event) => setText(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (
+            event.key === "Enter" &&
+            (event.metaKey || event.ctrlKey) &&
+            !event.nativeEvent.isComposing
+          ) {
+            event.preventDefault();
+            void submit();
+          }
+        }}
+      />
+      <Button
+        size="xs"
+        variant="outline"
+        className="self-end"
+        disabled={!text.trim() || saving}
+        onClick={() => void submit()}
+      >
+        Add note
+      </Button>
+    </div>
   );
 }
 
