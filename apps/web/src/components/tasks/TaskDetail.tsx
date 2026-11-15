@@ -439,6 +439,7 @@ function NoteComposer({ taskId }: { taskId: number }) {
       <Textarea
         value={text}
         aria-label="Add a note"
+        disabled={saving}
         placeholder="Add a note. Agents on this task can read it."
         onChange={(event) => setText(event.currentTarget.value)}
         onKeyDown={(event) => {
